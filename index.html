@@ -1,0 +1,2596 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>広島営業開拓サポート | 金属加工 新規開拓支援</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --steel-900:#161d26;   /* 深い鋼色（背景） */
+  --steel-800:#1e2833;
+  --steel-700:#2a3644;   /* パネル */
+  --steel-600:#3a4a5c;
+  --steel-300:#8a99aa;
+  --paper:#eef1f4;       /* 文字 */
+  --molten:#f2691e;      /* 溶湯オレンジ（アクセント） */
+  --molten-dim:#c8551a;
+  --brass:#c9a227;
+  --ok:#35a06a;
+  --info:#4a90d9;
+  --danger:#e05252;
+  --line:rgba(238,241,244,.13);
+  --radius:10px;
+  font-size:15px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"IBM Plex Sans JP",system-ui,sans-serif;
+  background:var(--steel-900);
+  color:var(--paper);
+  min-height:100vh;
+  padding-bottom:70px;
+}
+/* ===== 図面風ヘッダー ===== */
+header{
+  background:
+    linear-gradient(rgba(22,29,38,.88),rgba(22,29,38,.94)),
+    repeating-linear-gradient(0deg,transparent 0 23px,rgba(138,153,170,.16) 23px 24px),
+    repeating-linear-gradient(90deg,transparent 0 23px,rgba(138,153,170,.16) 23px 24px),
+    var(--steel-800);
+  border-bottom:2px solid var(--molten);
+  padding:14px 16px 10px;
+  position:sticky;top:0;z-index:1200;
+}
+header .eyebrow{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.68rem;letter-spacing:.18em;color:var(--steel-300);
+}
+header h1{
+  font-size:1.25rem;font-weight:700;letter-spacing:.06em;line-height:1.3;
+}
+header h1 .accent{color:var(--molten)}
+header .sub{font-size:.7rem;color:var(--steel-300);margin-top:2px}
+/* ===== タブ ===== */
+nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:1300;
+  display:flex;background:var(--steel-800);
+  border-top:1px solid var(--line);
+}
+nav button{
+  flex:1;background:none;border:none;color:var(--steel-300);
+  font-family:inherit;font-size:.62rem;padding:7px 1px 9px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+nav button .ico{font-size:1.05rem;line-height:1}
+nav button.active{color:var(--molten)}
+nav button.active .ico{transform:translateY(-1px)}
+main{padding:14px 14px 20px;max-width:860px;margin:0 auto}
+section.tab{display:none}
+section.tab.show{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+h2{
+  font-size:.95rem;font-weight:600;letter-spacing:.08em;
+  margin:6px 0 10px;display:flex;align-items:center;gap:8px;
+}
+h2::before{content:"";width:14px;height:3px;background:var(--molten);border-radius:2px}
+.note{font-size:.72rem;color:var(--steel-300);line-height:1.6;margin:6px 0 10px}
+/* ===== チップ・バッジ ===== */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{
+  border:1px solid var(--line);background:var(--steel-700);color:var(--paper);
+  padding:5px 11px;border-radius:999px;font-size:.72rem;cursor:pointer;font-family:inherit;
+}
+.chip.on{background:var(--molten);border-color:var(--molten);color:#fff;font-weight:600}
+.badge{
+  display:inline-block;font-size:.62rem;padding:2px 8px;border-radius:4px;
+  font-weight:600;letter-spacing:.04em;vertical-align:middle;
+}
+.b-role-sell{background:rgba(74,144,217,.18);color:#7db4e8;border:1px solid rgba(74,144,217,.45)}
+.b-role-partner{background:rgba(201,162,39,.15);color:#dcbf58;border:1px solid rgba(201,162,39,.45)}
+.b-role-both{background:rgba(242,105,30,.15);color:#f59a63;border:1px solid rgba(242,105,30,.5)}
+.b-area{background:var(--steel-600);color:var(--paper)}
+.b-existing{background:rgba(53,160,106,.16);color:#6bd19a;border:1px solid rgba(53,160,106,.45)}
+.b-exclude{background:rgba(138,153,170,.15);color:var(--steel-300);border:1px solid var(--line);text-decoration:line-through}
+.flagbar{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:.72rem;color:var(--steel-300)}
+.flagbar label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.flagbar input[type=checkbox]{width:14px;height:14px;accent-color:var(--molten)}
+.card.excluded{opacity:.55}
+/* 検印風ステータススタンプ */
+.stamp{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:52px;height:52px;border-radius:50%;
+  border:2px solid;font-size:.6rem;font-weight:700;letter-spacing:.05em;
+  transform:rotate(-8deg);flex-shrink:0;text-align:center;line-height:1.25;
+  font-family:"IBM Plex Mono","IBM Plex Sans JP",monospace;
+  user-select:none;
+}
+.st-untouched{border-color:var(--steel-300);color:var(--steel-300)}
+.st-visited{border-color:var(--info);color:var(--info)}
+.st-prospect{border-color:var(--molten);color:var(--molten)}
+.st-client{border-color:var(--ok);color:var(--ok)}
+/* ===== カード ===== */
+.card{
+  background:var(--steel-700);border:1px solid var(--line);border-radius:var(--radius);
+  padding:12px 13px;margin-bottom:12px;
+}
+.card .head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.card h3{font-size:.98rem;font-weight:700;letter-spacing:.03em}
+.card .meta{font-size:.72rem;color:var(--steel-300);margin-top:3px;line-height:1.6}
+.card .desc{font-size:.78rem;line-height:1.65;margin-top:7px}
+.card .dist{font-family:"IBM Plex Mono",monospace;font-size:.68rem;color:var(--brass);margin-top:4px}
+.stat-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));
+  gap:6px 10px;margin-top:9px;padding:8px 9px;background:var(--steel-800);
+  border:1px solid var(--line);border-radius:8px;
+}
+.stat-grid .stat b{display:block;font-size:.62rem;color:var(--steel-300);font-weight:500}
+.stat-grid .stat span{font-family:"IBM Plex Mono",monospace;font-size:.78rem;color:var(--paper)}
+.stat-grid .stat.empty span{color:var(--steel-600)}
+.stat-grid .stat input{
+  width:100%;background:transparent;border:none;border-bottom:1px dashed var(--steel-600);
+  color:var(--paper);font-family:"IBM Plex Mono",monospace;font-size:.78rem;padding:1px 0;
+}
+.stat-grid .stat input:focus{outline:none;border-bottom-color:var(--molten)}
+.stat-grid .stat input::placeholder{color:var(--steel-600);font-family:"IBM Plex Sans JP",sans-serif}
+.tagwrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tag{
+  background:rgba(201,162,39,.14);border:1px solid rgba(201,162,39,.4);color:#dcbf58;
+  font-size:.68rem;padding:3px 9px;border-radius:999px;
+}
+.tag.filteron{background:var(--brass);color:#1e2833;font-weight:700}
+.fin-note{font-size:.65rem;color:var(--steel-300);margin-top:4px;line-height:1.5}
+.webinfo-box{
+  margin-top:9px;background:var(--steel-800);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;
+}
+.webinfo-box summary{cursor:pointer;font-size:.75rem;color:var(--info);font-weight:600;list-style:none}
+.webinfo-box summary::-webkit-details-marker{display:none}
+.webinfo-box summary::before{content:"▶ ";display:inline-block;transition:transform .15s}
+.webinfo-box[open] summary::before{transform:rotate(90deg)}
+.webinfo-body{white-space:pre-wrap;font-size:.76rem;line-height:1.7;margin-top:7px;color:var(--paper)}
+.guide-block{
+  background:var(--steel-700);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 15px;margin-bottom:6px;
+}
+.guide-block h3{font-size:.85rem;color:var(--brass);margin:0 0 4px;letter-spacing:.03em}
+.guide-block h3:not(:first-child){margin-top:14px}
+.guide-block p{font-size:.79rem;line-height:1.75;color:var(--paper)}
+.guide-block.warn{border-color:rgba(224,82,82,.4);background:rgba(224,82,82,.06)}
+.guide-block.warn ul{list-style:none}
+.guide-block.warn li{
+  font-size:.78rem;line-height:1.7;padding:7px 0 7px 20px;position:relative;
+  border-bottom:1px dashed rgba(224,82,82,.25);
+}
+.guide-block.warn li:last-child{border-bottom:none}
+.guide-block.warn li::before{content:"⚠";position:absolute;left:0;color:var(--danger)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px;align-items:center}
+select,input[type=text],input[type=date],textarea{
+  background:var(--steel-800);border:1px solid var(--line);color:var(--paper);
+  border-radius:7px;padding:7px 9px;font-family:inherit;font-size:.78rem;
+}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--molten);outline-offset:1px}
+textarea{width:100%;min-height:64px;resize:vertical;line-height:1.6}
+label.fld{font-size:.68rem;color:var(--steel-300);display:block;margin:8px 0 3px}
+.btn{
+  background:var(--molten);border:none;color:#fff;font-weight:600;
+  padding:8px 14px;border-radius:7px;font-size:.78rem;cursor:pointer;font-family:inherit;
+}
+.btn:hover{background:var(--molten-dim)}
+.btn.ghost{background:var(--steel-600);color:var(--paper)}
+.btn.small{padding:5px 10px;font-size:.7rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.mapwrap{border-radius:8px;overflow:hidden;margin-top:9px;border:1px solid var(--line)}
+.mapwrap iframe{display:block;width:100%;height:230px;border:0}
+/* ===== 全体マップ ===== */
+#bigmap{height:62vh;min-height:380px;border-radius:var(--radius);border:1px solid var(--line)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.68rem;color:var(--steel-300);margin-top:8px}
+.legend span::before{content:"●";margin-right:4px}
+.lg-un::before{color:var(--steel-300)}.lg-vi::before{color:var(--info)}
+.lg-pr::before{color:var(--molten)}.lg-cl::before{color:var(--ok)}
+.lg-base::before{content:"★";color:var(--brass)}
+.leaflet-popup-content{font-family:"IBM Plex Sans JP",sans-serif;font-size:.78rem}
+/* ===== ログ ===== */
+.log{border-left:3px solid var(--steel-600);padding:8px 10px;margin-bottom:8px;background:var(--steel-700);border-radius:0 8px 8px 0}
+.log.due-soon{border-left-color:var(--molten)}
+.log.overdue{border-left-color:var(--danger)}
+.log .lg-head{display:flex;justify-content:space-between;font-size:.72rem;color:var(--steel-300)}
+.log .lg-co{font-weight:700;font-size:.85rem;color:var(--paper);margin:2px 0}
+.log .lg-body{font-size:.76rem;line-height:1.6}
+.log .lg-next{font-size:.72rem;margin-top:4px;color:var(--brass)}
+.temp{font-family:"IBM Plex Mono",monospace;font-weight:600}
+.temp-A{color:var(--molten)}.temp-B{color:var(--brass)}.temp-C{color:var(--steel-300)}
+/* ===== AI出力 ===== */
+#aiOut{
+  white-space:pre-wrap;background:var(--steel-800);border:1px solid var(--line);
+  border-radius:var(--radius);padding:13px;font-size:.8rem;line-height:1.75;min-height:90px;
+}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* ===== 武器タブ ===== */
+.pitch{background:var(--steel-700);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+.pitch h3{color:var(--molten);font-size:.95rem;margin-bottom:8px;letter-spacing:.05em}
+.pitch ul{list-style:none}
+.pitch li{padding:7px 0;border-bottom:1px dashed var(--line);font-size:.8rem;line-height:1.65}
+.pitch li b{color:var(--brass)}
+.flow{
+  display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:12px 0;
+  font-family:"IBM Plex Mono","IBM Plex Sans JP",monospace;font-size:.68rem;
+}
+.flow .step{background:var(--steel-800);border:1px solid var(--steel-600);padding:6px 9px;border-radius:6px}
+.flow .arrow{color:var(--molten);font-weight:700}
+/* gBiz結果 */
+.gb-item{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px dashed var(--line);font-size:.76rem}
+.hidden{display:none!important}
+@media(min-width:700px){
+  nav{position:sticky;top:auto;bottom:auto;border-top:none;border-bottom:1px solid var(--line)}
+  body{padding-bottom:20px}
+  nav button{flex-direction:row;font-size:.78rem;padding:11px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style id="setouchi-addon">
+/* =========================================================
+   ▼ せとうちドライブ・テーマ（追記アドオン／既存CSSは無変更で上書き）
+   海=瀬戸内ブルー ／ 山=島の緑 ／ アクセント=瀬戸内レモン
+========================================================= */
+:root{
+  --steel-900:#e8f3f4;   /* 瀬戸内の朝もや(背景) */
+  --steel-800:#f6fbfb;   /* 入力欄・薄パネル */
+  --steel-700:#ffffff;   /* カード */
+  --steel-600:#b7d3d8;   /* 罫線・弱色 */
+  --steel-300:#587a85;   /* 補助テキスト */
+  --paper:#16394a;       /* 本文(深い海色) */
+  --molten:#0e7fa3;      /* 瀬戸内ブルー(アクセント) */
+  --molten-dim:#0a6786;
+  --brass:#d0951f;       /* 瀬戸内レモン */
+  --ok:#3a8f66;          /* 島の緑 */
+  --info:#3f7fbf;
+  --danger:#d65454;
+  --line:rgba(22,57,74,.16);
+}
+body{background:linear-gradient(180deg,#e4f2f4 0%,#edf6f6 45%,#f1f7f3 100%)}
+.card{box-shadow:0 2px 10px rgba(22,57,74,.07)}
+nav{background:#ffffff;box-shadow:0 -2px 10px rgba(22,57,74,.08)}
+@media(min-width:700px){ nav{box-shadow:0 2px 10px rgba(22,57,74,.06)} }
+/* ヘッダー: 空→海のグラデ＋山・波・走るクルマ */
+header{
+  background:linear-gradient(180deg,#cfe9ef 0%,#e0f1f2 55%,#e8f3f4 100%);
+  border-bottom:2px solid var(--molten);
+  overflow:hidden;
+  padding:11px 16px 0;
+}
+header .eyebrow{color:#4a7c8c}
+header .sub{color:#3f6b7a}
+.hd-scene{position:relative;height:48px;margin:2px -16px 0;pointer-events:none}
+.hd-scene svg{position:absolute;left:0;right:0;width:100%;display:block}
+.hd-mtn{bottom:8px;height:38px}
+.hd-wave{bottom:0;height:20px}
+.hd-car{position:absolute;bottom:10px;left:0;width:88px;height:36px;animation:hd-drive 17s linear infinite}
+.hd-car svg{position:static;width:88px;height:36px}
+@keyframes hd-drive{
+  0%{transform:translateX(-100px)}
+  100%{transform:translateX(calc(100vw + 40px))}
+}
+@media(prefers-reduced-motion:reduce){ .hd-car{left:14px;animation:none} }
+/* 明色テーマでのバッジ・タグ等の可読性調整 */
+.b-role-sell{background:rgba(63,127,191,.12);color:#2c6ea8;border-color:rgba(63,127,191,.4)}
+.b-role-partner{background:rgba(208,149,31,.12);color:#8f6510;border-color:rgba(208,149,31,.4)}
+.b-role-both{background:rgba(14,127,163,.1);color:#0a6786;border-color:rgba(14,127,163,.4)}
+.b-existing{background:rgba(58,143,102,.12);color:#2c7050;border-color:rgba(58,143,102,.4)}
+.tag{background:rgba(208,149,31,.12);border-color:rgba(208,149,31,.4);color:#8f6510}
+.tag.filteron{background:var(--brass);color:#fff}
+.temp-A{color:#d0691f}
+.btn.ghost{background:#e3eff1;color:var(--paper)}
+.btn.ghost:hover{background:#d3e6ea}
+.chip{background:#fff}
+.chip.on{background:var(--molten);border-color:var(--molten);color:#fff}
+.log{background:#fff}
+.stamp{background:rgba(255,255,255,.6)}
+/* 比較グラフ */
+.ch-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.ch-name{
+  width:128px;flex-shrink:0;text-align:right;font-size:.72rem;background:none;border:none;
+  color:var(--molten);cursor:pointer;padding:0;font-family:inherit;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:underline dotted;
+}
+.ch-barwrap{flex:1;display:flex;align-items:center;gap:6px;min-width:0}
+.ch-bar{height:15px;border-radius:3px 8px 8px 3px;background:linear-gradient(90deg,var(--molten) 0%,#54b4cf 100%);min-width:3px;flex-shrink:0}
+.ch-val{font-family:"IBM Plex Mono",monospace;font-size:.66rem;color:var(--steel-300);white-space:nowrap}
+.card.flash{animation:cardflash 1.6s ease}
+@keyframes cardflash{0%{box-shadow:0 0 0 4px var(--brass)}100%{box-shadow:0 2px 10px rgba(22,57,74,.07)}}
+
+/* ===== タブ固定（スクロールしても隠れない） =====
+   元CSSはPC幅で position:sticky + top:auto となり実質固定されないため、
+   ヘッダー高さを変数で受けて top を明示する */
+:root{ --hd-h:132px; }
+@media(min-width:700px){
+  nav{
+    position:sticky;
+    top:var(--hd-h);
+    bottom:auto;
+    z-index:1250;
+    background:#fff;
+  }
+}
+/* スマホ幅は元のまま画面下部に固定。iPhone等のホームバー分を確保 */
+@media(max-width:699px){
+  nav{ padding-bottom:env(safe-area-inset-bottom,0) }
+  body{ padding-bottom:calc(70px + env(safe-area-inset-bottom,0)) }
+}
+/* 見出しジャンプ時にタブ下へ潜り込まないようにする */
+section.tab{ scroll-margin-top:calc(var(--hd-h) + 54px) }
+.card{ scroll-margin-top:calc(var(--hd-h) + 60px) }
+
+/* ===== 使い方アシスト ===== */
+.hd-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+#helpBtn{
+  flex-shrink:0;background:var(--molten);color:#fff;border:none;border-radius:999px;
+  padding:7px 13px;font-family:inherit;font-size:.72rem;font-weight:700;cursor:pointer;
+  box-shadow:0 2px 8px rgba(14,127,163,.3);display:flex;align-items:center;gap:5px;
+}
+#helpBtn:hover{background:var(--molten-dim)}
+#helpBtn.on{background:var(--brass);box-shadow:0 2px 8px rgba(208,149,31,.4)}
+/* 解説の吹き出し（アシストON時のみ表示） */
+.hint{
+  display:none;background:rgba(208,149,31,.1);border:1px solid rgba(208,149,31,.5);
+  border-left:3px solid var(--brass);border-radius:0 6px 6px 0;
+  padding:6px 9px;margin:5px 0 9px;font-size:.72rem;line-height:1.6;color:#6d4e0c;
+}
+body.help-on .hint{display:block}
+.hint b{color:#8f6510}
+.hint::before{content:"💡 ";}
+/* アシストON時の対象ハイライト */
+body.help-on .hint-target{outline:2px dashed rgba(208,149,31,.75);outline-offset:2px;border-radius:6px}
+#helpBanner{
+  display:none;position:sticky;top:0;z-index:1400;
+  background:var(--brass);color:#fff;font-size:.74rem;font-weight:600;
+  padding:7px 12px;text-align:center;
+}
+body.help-on #helpBanner{display:block}
+
+/* ===== リスト表示（CSVプレビュー） ===== */
+.tbwrap{
+  overflow:auto;max-height:65vh;border:1px solid var(--line);
+  border-radius:var(--radius);background:#fff;
+}
+#tbTable{border-collapse:separate;border-spacing:0;font-size:.7rem;white-space:nowrap;width:max-content;min-width:100%}
+#tbTable th,#tbTable td{
+  padding:6px 9px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);
+  text-align:left;vertical-align:top;
+}
+#tbTable thead th{
+  position:sticky;top:0;z-index:3;background:#dcecef;color:var(--paper);
+  font-weight:700;font-size:.68rem;box-shadow:0 1px 0 var(--line);
+}
+/* 1列目（社名/訪問日）を横スクロールでも固定 */
+#tbTable th:first-child,#tbTable td:first-child{
+  position:sticky;left:0;z-index:2;background:#f2f9fa;font-weight:600;
+  box-shadow:1px 0 0 var(--line);
+}
+#tbTable thead th:first-child{z-index:4;background:#cfe4e8}
+#tbTable tbody tr:hover td{background:rgba(14,127,163,.07)}
+#tbTable td.num{font-family:"IBM Plex Mono",monospace;text-align:right}
+#tbTable td .cellclip{display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+#tbTable td a{color:var(--molten)}
+.tb-jump{background:none;border:none;color:var(--molten);cursor:pointer;font-family:inherit;
+  font-size:.7rem;font-weight:700;padding:0;text-decoration:underline dotted}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd-top">
+    <div>
+      <div class="eyebrow">SETOUCHI SEA &amp; MOUNTAINS ─ HER DRIVE SALES SUPPORT</div>
+      <h1>広島<span class="accent">営業開拓</span>サポート</h1>
+      <div class="sub">海と山の瀬戸内を、彼女は今日もクルマで開拓へ 🚗💨 ─ 広島・呉・東広島・三原尾道・福山府中</div>
+    </div>
+    <button id="helpBtn" type="button" aria-pressed="false" title="各ボタン・入力欄の意味を表示します">❓ 使い方アシスト</button>
+  </div>
+  <div class="hd-scene" aria-hidden="true">
+    <svg class="hd-mtn" viewBox="0 0 800 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="738" cy="9" r="8" fill="#f2cf4a" opacity=".9"/>
+      <polygon points="0,40 60,14 130,34 200,8 280,36 350,18 430,40 800,40" fill="#8db99a" opacity=".65"/>
+      <polygon points="150,40 250,20 330,38 410,12 505,36 575,22 660,40 800,25 800,40" fill="#5c9878" opacity=".8"/>
+    </svg>
+    <svg class="hd-wave" viewBox="0 0 800 22" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,12 Q50,4 100,12 T200,12 T300,12 T400,12 T500,12 T600,12 T700,12 T800,12 V22 H0 Z" fill="#8fcadd" opacity=".8"/>
+      <path d="M0,16 Q50,9 100,16 T200,16 T300,16 T400,16 T500,16 T600,16 T700,16 T800,16 V22 H0 Z" fill="#4aa9c8" opacity=".85"/>
+    </svg>
+    <div class="hd-car">
+      <svg viewBox="0 0 88 36" xmlns="http://www.w3.org/2000/svg">
+        <g opacity=".55" stroke="#7fb6c6" stroke-width="2" stroke-linecap="round">
+          <line x1="2" y1="15" x2="10" y2="15"/><line x1="0" y1="21" x2="8" y2="21"/>
+        </g>
+        <ellipse cx="45" cy="33" rx="30" ry="2.5" fill="#2f5d6e" opacity=".15"/>
+        <rect x="26" y="4" width="30" height="15" rx="7" fill="#f6d24a"/>
+        <rect x="30" y="7" width="22" height="9" rx="4" fill="#e2f4f8"/>
+        <ellipse cx="34.5" cy="12.5" rx="3" ry="3.6" fill="#6b4a35"/>
+        <circle cx="40" cy="11.5" r="3.4" fill="#f7cfae"/>
+        <path d="M36.5,10.4 Q40,6.4 43.6,10.4 L43.6,11.4 Q40,8.6 36.5,11.4 Z" fill="#6b4a35"/>
+        <rect x="13" y="14" width="62" height="14" rx="7" fill="#f6d24a"/>
+        <rect x="15" y="19" width="58" height="4" fill="#eec22e"/>
+        <circle cx="27" cy="28" r="5.2" fill="#31414c"/><circle cx="27" cy="28" r="2" fill="#cfe2e8"/>
+        <circle cx="61" cy="28" r="5.2" fill="#31414c"/><circle cx="61" cy="28" r="2" fill="#cfe2e8"/>
+        <circle cx="73.5" cy="18.5" r="1.8" fill="#fff2b8"/>
+      </svg>
+    </div>
+  </div>
+</header>
+
+<div id="helpBanner">💡 使い方アシスト表示中 ─ 各項目の説明が黄色の枠で表示されます。もう一度ボタンを押すと閉じます</div>
+
+<nav id="nav">
+  <button data-tab="map" class="active"><span class="ico">🗺️</span>マップ</button>
+  <button data-tab="list"><span class="ico">🏭</span>企業</button>
+  <button data-tab="chart"><span class="ico">📊</span>グラフ</button>
+  <button data-tab="table"><span class="ico">📋</span>リスト</button>
+  <button data-tab="ai"><span class="ico">🤖</span>AI準備</button>
+  <button data-tab="logs"><span class="ico">📋</span>訪問録</button>
+  <button data-tab="pitch"><span class="ico">🛠️</span>武器</button>
+  <button data-tab="guide"><span class="ico">📖</span>ガイド</button>
+  <button data-tab="settings"><span class="ico">⚙️</span>設定</button>
+</nav>
+
+<main>
+
+<!-- ============ タブ1: マップ ============ -->
+<section class="tab show" id="tab-map">
+  <h2>ターゲットマップ</h2>
+  <div class="chips" id="mapAreaChips"></div>
+  <div id="bigmap"></div>
+  <div class="legend">
+    <span class="lg-un">未訪問</span><span class="lg-vi">訪問済</span>
+    <span class="lg-pr">見込み</span><span class="lg-cl">取引中</span>
+    <span class="lg-base">自社拠点</span>
+  </div>
+  <p class="note">※ 初期登録企業の住所・電話・URLは<b>2026年7月時点の公式サイト等で確認済み</b>です。ピン位置は住所から概算している企業もあるため、正確な位置はカード内の「地図」ボタン（住所検索）でご確認ください。移転・統合の可能性もあるため、訪問前に最新状況の確認をおすすめします。</p>
+</section>
+
+<!-- ============ タブ2: 企業リスト ============ -->
+<section class="tab" id="tab-list">
+  <h2>企業リスト <span id="coCount" style="font-size:.7rem;color:var(--steel-300);font-weight:400;margin-left:6px"></span></h2>
+  <div class="row" style="margin:0 0 10px">
+    <button class="btn" id="gotoAddBtn">➕ 企業を見つけてリストに追加</button>
+  </div>
+  <div class="hint">上のボタンを押すと、このページ下部の<b>「企業を追加」</b>エリアへ移動します。gBizINFOからの一括インポート・キーワード検索・手入力の3つの方法で企業を追加できます。</div>
+  <div class="row" style="margin-bottom:10px">
+    <select id="fltArea"></select>
+    <select id="fltStatus">
+      <option value="">状況: すべて</option>
+      <option value="untouched">未訪問</option>
+      <option value="visited">訪問済</option>
+      <option value="prospect">見込み</option>
+      <option value="client">取引中</option>
+    </select>
+    <select id="fltRole">
+      <option value="">位置づけ: すべて</option>
+      <option value="sell">販売先候補</option>
+      <option value="partner">協力工場候補</option>
+      <option value="both">両面</option>
+    </select>
+    <select id="fltExisting">
+      <option value="">既存顧客: すべて</option>
+      <option value="yes">既存顧客のみ</option>
+      <option value="no">既存顧客以外（新規開拓）</option>
+    </select>
+    <select id="fltSort">
+      <option value="name">名前順</option>
+      <option value="dist">拠点から近い順</option>
+      <option value="status">状況順</option>
+      <option value="capital">資本金が多い順</option>
+      <option value="employees">従業員数が多い順</option>
+    </select>
+  </div>
+  <div class="row" style="margin-bottom:6px">
+    <label class="fld" style="margin:0">資本金 以上（参考値）</label>
+    <input type="text" id="fltCapMin" placeholder="例: 1000" style="width:100px">
+    <label class="fld" style="margin:0">従業員数 以上</label>
+    <input type="text" id="fltEmpMin" placeholder="例: 50" style="width:80px">
+    <button class="btn ghost small" id="fltClearBtn">絞り込み解除</button>
+    <label style="font-size:.72rem;color:var(--steel-300);display:flex;align-items:center;gap:5px">
+      <input type="checkbox" id="fltShowExcluded" style="accent-color:var(--molten)">訪問対象外も表示
+    </label>
+  </div>
+  <p class="note" id="fltTagNote">加工タグで絞り込み（「詳細取得」または「AI加工分類」を実行した企業にタグが付きます）</p>
+  <div class="chips" id="fltTagChips"></div>
+  <div id="coList"></div>
+
+  <h2 style="margin-top:22px" id="addSection">企業を追加</h2>
+  <div class="card">
+    <label class="fld">広島県内を一括インポート（gBizINFO）</label>
+    <p class="note">複数のキーワードでgBizINFOを自動検索し、まだリストに無い企業だけをまとめて追加します（詳細情報は追加後に個別で「詳細取得」してください）。GAS設定が必要です。</p>
+    <div class="row">
+      <label class="fld" style="margin:0">新しく追加する件数</label>
+      <input type="text" id="bulkTarget" value="100" style="width:70px">
+      <label style="font-size:.72rem;color:var(--steel-300);display:flex;align-items:center;gap:5px">
+        <input type="checkbox" id="bulkIncludeVisited" style="accent-color:var(--molten)">
+        訪問済み・取引中など既存の企業も対象にする（同名で別カードとして追加されます）
+      </label>
+    </div>
+    <div class="row">
+      <button class="btn" id="bulkImportBtn">📥 一括インポート開始</button>
+      <span id="bulkImportMsg" class="note" style="margin:0"></span>
+    </div>
+  </div>
+  <div class="card">
+    <label class="fld">gBizINFOから検索して追加（GAS設定が必要）</label>
+    <div class="row">
+      <input type="text" id="gbKw" placeholder="例: 製作所 / 鉄工 / 金属" style="flex:1;min-width:140px">
+      <button class="btn" id="gbBtn">検索</button>
+    </div>
+    <div id="gbResults"></div>
+    <label class="fld" style="margin-top:14px">手入力で追加</label>
+    <div class="row">
+      <input type="text" id="addName" placeholder="社名" style="flex:1;min-width:150px">
+      <select id="addArea"></select>
+    </div>
+    <div class="row">
+      <input type="text" id="addAddr" placeholder="住所（市区町から）" style="flex:1;min-width:200px">
+    </div>
+    <div class="row">
+      <input type="text" id="addBiz" placeholder="事業内容メモ（例: 精密板金・レーザー切断）" style="flex:1;min-width:200px">
+      <input type="text" id="addPhone" placeholder="電話番号（任意）" style="width:140px">
+      <button class="btn" id="addBtn">追加</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ タブ3: AI準備 ============ -->
+<section class="tab" id="tab-ai">
+  <h2>AI訪問ブリーフィング</h2>
+  <p class="note">訪問先を選んで生成。飛び込み前に車内で30秒読む用。GASのURL設定（⚙️設定タブ）とClaude APIキーの登録が必要です。</p>
+  <div class="row">
+    <select id="aiCo" style="flex:1;min-width:200px"></select>
+    <button class="btn" id="aiBtn">ブリーフィング生成</button>
+  </div>
+  <div class="row">
+    <input type="text" id="aiQ" placeholder="追加の質問（例: 断られた後の再訪の口実は？）" style="flex:1;min-width:200px">
+    <button class="btn ghost" id="aiQBtn">質問する</button>
+  </div>
+  <div id="aiOut" style="margin-top:10px">ここに結果が表示されます。</div>
+</section>
+
+<!-- ============ タブ4: 訪問ログ ============ -->
+<section class="tab" id="tab-logs">
+  <h2>訪問を記録</h2>
+  <div class="card">
+    <div class="row">
+      <select id="lgCo" style="flex:1;min-width:180px"></select>
+      <input type="date" id="lgDate">
+    </div>
+    <div class="row">
+      <input type="text" id="lgPerson" placeholder="面談相手（例: 資材課 ◯◯様）" style="flex:1;min-width:170px">
+      <select id="lgTemp">
+        <option value="A">温度 A: 具体案件あり</option>
+        <option value="B" selected>温度 B: 関心あり</option>
+        <option value="C">温度 C: 当面なし</option>
+      </select>
+    </div>
+    <label class="fld">面談メモ</label>
+    <textarea id="lgMemo" placeholder="話した内容・先方の課題・キーマン情報など"></textarea>
+    <div class="row">
+      <input type="text" id="lgNext" placeholder="次アクション（例: 図面預かり→見積提出）" style="flex:1;min-width:170px">
+      <input type="date" id="lgDue">
+      <button class="btn" id="lgBtn">記録する</button>
+    </div>
+  </div>
+
+  <h2>次アクション（期限順）</h2>
+  <div id="logList"></div>
+
+  <h2 style="margin-top:22px">訪問履歴をメール送信</h2>
+  <div class="card">
+    <div class="row">
+      <select id="mailMode">
+        <option value="range">期間を指定して送る</option>
+        <option value="select">記録を個別に選んで送る</option>
+      </select>
+    </div>
+    <div class="row" id="mailRangeRow">
+      <label class="fld" style="margin:0">開始日</label>
+      <input type="date" id="mailFrom">
+      <label class="fld" style="margin:0">終了日</label>
+      <input type="date" id="mailTo">
+    </div>
+    <p class="note" id="mailSelectNote">下の「次アクション」一覧の各記録に表示されるチェックボックスで、送りたい記録を選んでください。</p>
+    <div class="row">
+      <input type="text" id="mailSubject" placeholder="件名（未入力なら自動生成）" style="flex:1;min-width:200px">
+    </div>
+    <div class="row">
+      <button class="btn" id="mailSendBtn">📧 送信する</button>
+    </div>
+    <p class="note" id="mailMsg"></p>
+  </div>
+</section>
+
+<!-- ============ タブ5: 自社の武器 ============ -->
+<section class="tab" id="tab-pitch">
+  <h2>スマホで見せる自社紹介</h2>
+  <div class="chips" id="pitchChips">
+    <button class="chip on" data-p="auto">自動車部品向け</button>
+    <button class="chip" data-p="ship">造船・重工向け</button>
+    <button class="chip" data-p="machine">産業機械向け</button>
+    <button class="chip" data-p="partner">協力工場候補向け</button>
+  </div>
+  <div class="pitch" id="pitchBody"></div>
+</section>
+
+<!-- ============ タブ7: ガイド ============ -->
+<section class="tab" id="tab-guide">
+  <h2>利用シーン別の使い方</h2>
+  <div class="guide-block">
+    <h3>① 朝、出発前（5分）</h3>
+    <p>🗺️マップタブでエリアを選び、その日回るエリアの未訪問先の位置を確認します。次に🏭企業タブで温度感（見込み）が高い先や、資本金・従業員数・加工タグで絞り込み、今日の訪問先を3〜5社に決めます。決めたら🤖AI準備タブでブリーフィングを生成し、車内で読み込みます。</p>
+    <h3>② 訪問直前（信号待ち・駐車後）</h3>
+    <p>🛠️武器タブで、相手の業種（自動車／造船／産業機械／協力工場候補）に合わせたトークを開き、スマホ画面をそのまま提示できるようにしておきます。🤖AI準備タブの「追加の質問」で、想定される断り文句への切り返しをその場で聞くこともできます。</p>
+    <h3>③ 訪問直後（車に戻ったら）</h3>
+    <p>📋訪問録タブでその場で記録します。温度感A/B/Cと次アクション・期限を必ず入れておくと、後で「次アクション期限順」に自動で並び、訪問漏れを防げます。</p>
+    <h3>④ 週次の棚卸し（週末や移動中）</h3>
+    <p>🏭企業タブのスクリーニング機能（資本金・従業員数・加工タグ）で担当先を整理し、既に取引している先には「既取引先」フラグ、今は狙わない先には「訪問対象外」フラグを付けておくと、次回以降のリストがすっきりします。候補をまとめて増やしたいときは「一括インポート」でgBizINFOから実在企業をまとめて取り込めます（重複はスキップされます）。</p>
+    <h3>⑤ 上司への週報・月報</h3>
+    <p>📋訪問録タブの「訪問履歴をメール送信」から、期間を指定するか記録を個別に選んでメール送信できます。送信先は⚙️設定タブで事前に登録しておきます。</p>
+  </div>
+
+  <h2 style="margin-top:24px">このアプリの仕組み（動作の裏側）</h2>
+  <div class="guide-block">
+    <p><b>本体はブラウザで動く1枚のHTMLファイルです。</b>専用サーバーやクラウドDBは使っておらず、入力したデータ（企業リスト・訪問記録・設定）はすべてこの端末のブラウザ内（localStorage）だけに保存されます。他の端末や同僚とは自動的には共有されません。同僚と共有したい場合は⚙️設定タブの「JSONエクスポート」で書き出したファイルを渡し、相手側で「JSONインポート」してください。</p>
+    <p><b>企業データベースへのアクセスについて：</b>🏭企業タブの検索・詳細取得ボタンを押すと、ブラウザが皆さんご自身のGoogle Apps Script（GAS）経由で、経済産業省の公開API「gBizINFO」に法人名や法人番号を送って情報を取得します。GAS側にはAPIキーやトークンが保管されており、ブラウザ側には一切表示・保存されません。</p>
+    <p><b>AI機能（ブリーフィング生成・加工分類）について：</b>同じGAS経由でAnthropicのClaude APIに、企業名・業種・自社の強みなどをまとめたプロンプトを送信し、生成された文章を受け取って画面に表示しています。この際に送信される情報は、皆さんがアプリ内に入力・登録した内容（企業名や事業メモなど）に限られます。</p>
+    <p><b>メール送信について：</b>後述の「訪問履歴メール送信」機能を使うと、GASを経由してご自身のGoogleアカウントからメールが送信されます（Google Apps ScriptのMailApp機能を使用）。○○社内サーバーやAnthropic社を経由するものではありません。</p>
+  </div>
+
+  <h2 style="margin-top:24px">⚠️ご利用にあたっての注意事項</h2>
+  <div class="guide-block warn">
+    <ul>
+      <li>初期登録されている企業の住所・電話番号・会社URLは、<b>2026年7月時点で各社の公式サイト・広島県等の公開情報を確認して登録</b>したものです。ただし移転・統合・閉鎖の可能性があるため、訪問前に公式サイト等で最新状況をご確認ください。</li>
+      <li>地図のピン位置は、カードに<b>「地図位置=公式」</b>と表示がある企業は公式サイト掲載の座標、<b>「地図位置=地図事業者」</b>は地図事業者の掲載値、<b>「地図位置=住所から概算」</b>は住所を元にした概略値です。概算のものは数十〜数百mずれる場合があるため、正確な位置は各カードの<b>「📍地図」ボタン（住所で検索）</b>でご確認ください。</li>
+      <li>一部の企業は<b>登記上の本社と訪問先の工場が異なります</b>（例：中国工業＝登記本社は広島市中区／呉工場を登録、尾道造船＝登記本社は神戸市／尾道造船所を登録）。訪問先の部署・受付場所は事前にご確認ください。</li>
+      <li>資本金・従業員数はgBizINFOが提供する値をそのまま表示した<b>参考値</b>です。単位の解釈に幅があるため、正式な数字が必要な場合は登記情報・会社四季報等の一次情報でご確認ください。</li>
+      <li>売上高・純利益は<b>有価証券報告書を提出している上場・大企業のみ</b>取得できます。中小の協力工場候補では「データなし」と出るのが通常であり、システムの不具合ではありません。「上場企業(推定)」の表示も、財務データの有無から推定した参考情報であり、公式の上場・非上場判定ではありません。</li>
+      <li>AIが生成するブリーフィング・加工タグ・トーク例は<b>推定・生成物</b>であり、事実と異なる場合があります。必ず現地で裏取りしたうえでご活用ください。</li>
+      <li>データはこの端末のブラウザ内にのみ保存されます。機種変更・ブラウザの初期化・キャッシュ削除で消える可能性があるため、⚙️設定タブの「JSONエクスポート」で定期的にバックアップを取ってください。</li>
+      <li>メール送信機能は送信者ご自身のGoogleアカウントの送信枠（無料アカウントは1日あたり目安100通程度）を消費します。社外秘・個人情報を含む内容を送る際は、宛先の入力ミスに十分ご注意ください。</li>
+      <li>本アプリが示すスコアリング・提案・トークはあくまで営業活動を補助する参考情報です。最終的な商談判断は営業担当者ご自身の責任で行ってください。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ タブ8: 比較グラフ（アドオン） ============ -->
+<section class="tab" id="tab-chart">
+  <h2>比較グラフ</h2>
+  <p class="note">複数の条件で対象を絞り込み、選んだ指標の横棒グラフで比較します。<b>社名をタップすると企業リストの該当カードへジャンプ</b>します。</p>
+  <p class="note" style="margin-bottom:2px">エリア（複数選択可）</p>
+  <div class="chips" id="chAreaChips"></div>
+  <p class="note" style="margin-bottom:2px">状況（複数選択可）</p>
+  <div class="chips" id="chStatusChips"></div>
+  <p class="note" style="margin-bottom:2px">位置づけ（複数選択可）</p>
+  <div class="chips" id="chRoleChips"></div>
+  <p class="note" style="margin-bottom:2px">加工タグ（複数選択可・すべてを満たす企業）</p>
+  <div class="chips" id="chTagChips"></div>
+  <div class="row">
+    <select id="chExisting">
+      <option value="">既存顧客: すべて</option>
+      <option value="yes">既存顧客のみ</option>
+      <option value="no">既存顧客以外（新規開拓）</option>
+    </select>
+    <input type="text" id="chKw" placeholder="キーワード（社名・事業内容）" style="flex:1;min-width:150px">
+  </div>
+  <div class="row">
+    <label class="fld" style="margin:0">資本金 以上</label>
+    <input type="text" id="chCapMin" placeholder="例: 1000" style="width:90px">
+    <label class="fld" style="margin:0">従業員 以上</label>
+    <input type="text" id="chEmpMin" placeholder="例: 50" style="width:70px">
+    <label style="font-size:.72rem;color:var(--steel-300);display:flex;align-items:center;gap:5px">
+      <input type="checkbox" id="chShowExcluded" style="accent-color:var(--molten)">訪問対象外も含む
+    </label>
+  </div>
+  <div class="row">
+    <select id="chMetric">
+      <option value="capital">指標: 資本金(参考値)</option>
+      <option value="employees">指標: 従業員数</option>
+      <option value="sales">指標: 売上高(参考)</option>
+      <option value="dist">指標: 拠点からの距離(km)</option>
+      <option value="visits">指標: 訪問回数</option>
+      <option value="aiscore">指標: AI相性スコア</option>
+    </select>
+    <select id="chOrder">
+      <option value="desc">降順（大きい順）</option>
+      <option value="asc">昇順（小さい順）</option>
+    </select>
+    <select id="chLimit">
+      <option value="20">上位20社</option>
+      <option value="50" selected>上位50社</option>
+      <option value="0">全件</option>
+    </select>
+    <button class="btn small ghost" id="chClearBtn">条件クリア</button>
+  </div>
+  <div id="chartWrap" style="margin-top:10px"><p class="note">条件を選ぶとグラフが表示されます。</p></div>
+</section>
+
+<!-- ============ タブ9: リスト表示（CSV出力プレビュー） ============ -->
+<section class="tab" id="tab-table">
+  <h2>リスト表示（CSV出力プレビュー）</h2>
+  <p class="note">⚙️設定タブの「全項目CSV出力」で書き出される内容を、<b>出力前にそのまま確認</b>できます。ここで絞り込んだ条件はCSV出力にも連動します。</p>
+  <div class="hint">CSVをメールで送る前に「どの会社が何件出るか」をここで確認するためのタブです。<b>下の絞り込み条件はCSV出力と共通</b>なので、ここで整えてから⚙️設定タブでダウンロード／メール送信してください。</div>
+  <div class="row">
+    <select id="tbType">
+      <option value="companies">企業一覧（1社1行）</option>
+      <option value="logs">訪問履歴明細（1訪問1行）</option>
+    </select>
+    <select id="tbArea"></select>
+    <select id="tbStatus">
+      <option value="">状況: すべて</option>
+      <option value="untouched">未訪問</option>
+      <option value="visited">訪問済</option>
+      <option value="prospect">見込み</option>
+      <option value="client">取引中</option>
+    </select>
+    <select id="tbRole">
+      <option value="">位置づけ: すべて</option>
+      <option value="sell">販売先候補</option>
+      <option value="partner">協力工場候補</option>
+      <option value="both">両面</option>
+    </select>
+    <select id="tbExisting">
+      <option value="">既存顧客: すべて</option>
+      <option value="yes">既存顧客のみ</option>
+      <option value="no">既存顧客以外</option>
+    </select>
+    <select id="tbTemp">
+      <option value="">最新温度感: すべて</option>
+      <option value="A">A: 具体案件あり</option>
+      <option value="B">B: 関心あり</option>
+      <option value="C">C: 当面なし</option>
+    </select>
+  </div>
+  <div class="row">
+    <label class="fld" style="margin:0">登録日</label>
+    <input type="date" id="tbRegFrom"> 〜 <input type="date" id="tbRegTo">
+    <label class="fld" style="margin:0">訪問日</label>
+    <input type="date" id="tbVisFrom"> 〜 <input type="date" id="tbVisTo">
+  </div>
+  <div class="row">
+    <input type="text" id="tbKw" placeholder="キーワード（社名・事業内容・メモ）" style="flex:1;min-width:170px">
+    <label style="font-size:.72rem;color:var(--steel-300);display:flex;align-items:center;gap:5px">
+      <input type="checkbox" id="tbExcluded" style="accent-color:var(--molten)">訪問対象外も含む
+    </label>
+    <button class="btn ghost small" id="tbClearBtn">条件クリア</button>
+  </div>
+  <div class="hint">絞り込んだ結果は<b>この条件のまま</b>CSVにできます。下のボタンはどちらも⚙️設定タブと同じ動作です。</div>
+  <div class="row">
+    <button class="btn" id="tbDlBtn">📥 この内容をCSVダウンロード</button>
+    <button class="btn ghost" id="tbMailBtn">📧 この内容をメール送信</button>
+  </div>
+  <p class="note" id="tbMsg"></p>
+  <p class="note" id="tbCount" style="margin-bottom:4px"></p>
+  <div class="tbwrap"><table id="tbTable"></table></div>
+</section>
+
+<!-- ============ タブ6: 設定 ============ -->
+<section class="tab" id="tab-settings">
+  <h2>設定</h2>
+  <div class="card">
+    <label class="fld">GAS WebアプリURL（gBizINFO検索・AIブリーフィングに必要）</label>
+    <div class="row">
+      <input type="text" id="setGas" placeholder="https://script.google.com/macros/s/xxxx/exec" style="flex:1;min-width:220px">
+      <button class="btn" id="setGasBtn">保存</button>
+      <button class="btn ghost" id="setTestBtn">接続テスト</button>
+    </div>
+    <p class="note" id="setMsg"></p>
+  </div>
+  <div class="card">
+    <label class="fld">訪問履歴メールの送信先</label>
+    <div class="row">
+      <input type="text" id="setMail" placeholder="例: boss@example.com" style="flex:1;min-width:220px">
+      <button class="btn" id="setMailBtn">保存</button>
+    </div>
+    <p class="note">📋訪問録タブの「訪問履歴をメール送信」で使う宛先です。GAS経由でご自身のGoogleアカウントから送信されます。</p>
+  </div>
+  <div class="card">
+    <label class="fld">データのバックアップ</label>
+    <div class="row">
+      <button class="btn ghost" id="expBtn">JSONエクスポート</button>
+      <button class="btn ghost" id="impBtn">JSONインポート</button>
+      <button class="btn ghost" id="csvBtn">CSVエクスポート（企業情報）</button>
+      <input type="file" id="impFile" accept=".json" class="hidden">
+    </div>
+    <label class="fld" style="color:var(--danger)">危険な操作</label>
+    <div class="row">
+      <button class="btn ghost" id="resetBtn" style="color:var(--danger)">全データを初期状態に戻す</button>
+    </div>
+  </div>
+  <div class="card" id="csvXCard">
+    <label class="fld">📊 全項目CSV出力（抽出条件つき）＆メール送信</label>
+    <p class="note">企業情報・訪問履歴・登録日・AI相性判定・周辺施設リンクまで<b>すべて織り込んだCSV</b>（Excelでそのまま開けるBOM付きUTF-8）を出力します。抽出条件は未入力なら「すべて」です。</p>
+    <div class="row">
+      <label class="fld" style="margin:0">出力形式</label>
+      <select id="csvXType">
+        <option value="companies">企業一覧（1社1行・訪問履歴の要約つき）</option>
+        <option value="logs">訪問履歴明細（1訪問1行・企業情報つき）</option>
+      </select>
+    </div>
+    <div class="row">
+      <select id="csvXArea"></select>
+      <select id="csvXStatus">
+        <option value="">状況: すべて</option>
+        <option value="untouched">未訪問</option>
+        <option value="visited">訪問済</option>
+        <option value="prospect">見込み</option>
+        <option value="client">取引中</option>
+      </select>
+      <select id="csvXRole">
+        <option value="">位置づけ: すべて</option>
+        <option value="sell">販売先候補</option>
+        <option value="partner">協力工場候補</option>
+        <option value="both">両面</option>
+      </select>
+      <select id="csvXExisting">
+        <option value="">既存顧客: すべて</option>
+        <option value="yes">既存顧客のみ</option>
+        <option value="no">既存顧客以外</option>
+      </select>
+      <select id="csvXTemp">
+        <option value="">最新温度感: すべて</option>
+        <option value="A">A: 具体案件あり</option>
+        <option value="B">B: 関心あり</option>
+        <option value="C">C: 当面なし</option>
+      </select>
+    </div>
+    <div class="row">
+      <label class="fld" style="margin:0">登録日</label>
+      <input type="date" id="csvXRegFrom"> 〜 <input type="date" id="csvXRegTo">
+      <label class="fld" style="margin:0">訪問日</label>
+      <input type="date" id="csvXVisFrom"> 〜 <input type="date" id="csvXVisTo">
+    </div>
+    <div class="row">
+      <input type="text" id="csvXKw" placeholder="キーワード（社名・事業内容・メモ）" style="flex:1;min-width:170px">
+      <label style="font-size:.72rem;color:var(--steel-300);display:flex;align-items:center;gap:5px">
+        <input type="checkbox" id="csvXExcluded" style="accent-color:var(--molten)">訪問対象外も含む
+      </label>
+    </div>
+    <div class="row">
+      <input type="text" id="csvXTo" placeholder="送信先（未入力なら上の設定の宛先を使用）" style="flex:1;min-width:200px">
+    </div>
+    <div class="row">
+      <button class="btn" id="csvXDlBtn">📥 CSVダウンロード</button>
+      <button class="btn ghost" id="csvXMailBtn">📧 CSVをメールで送信</button>
+    </div>
+    <p class="note" id="csvXMsg"></p>
+    <p class="note">※メール添付にはGASプロキシ最新版（sendMailCsv対応）の貼り替え・再デプロイが必要です。</p>
+  </div>
+  <p class="note">データはこの端末のブラウザ（localStorage）に保存されます。機種変更・ブラウザ変更の前に必ずJSONエクスポートしてください。</p>
+</section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+/* =========================================================
+   広島開拓ノート v1.0
+   単一HTML + GASプロキシ（gBizINFO / Claude API）
+========================================================= */
+const LS_KEY = "hkn_v1";
+
+const AREAS = {
+  hiroshima:"広島・安芸", kure:"呉", higashi:"東広島・竹原",
+  mihara:"三原・尾道", fukuyama:"福山・府中"
+};
+const STATUS = { untouched:"未訪問", visited:"訪問済", prospect:"見込み", client:"取引中" };
+const STATUS_COLOR = { untouched:"#8a99aa", visited:"#4a90d9", prospect:"#f2691e", client:"#35a06a" };
+const ROLES = { sell:"販売先候補", partner:"協力工場候補", both:"両面" };
+
+/* 自社拠点 */
+const BASES = [
+  {name:"○○ 広島営業所", lat:34.3977, lng:132.4755, note:"広島市南区松原町（広島駅前）"},
+  {name:"○○ 福山物流センター", lat:34.4650, lng:133.3920, note:"福山市曙町"}
+];
+
+/* 市区町 → 概略座標（gBiz取込・手入力時のジオコーディング代用） */
+const CITY_COORDS = {
+  "広島市中区":[34.392,132.455],"広島市東区":[34.405,132.478],"広島市南区":[34.379,132.469],
+  "広島市西区":[34.394,132.434],"広島市安佐南区":[34.453,132.443],"広島市安佐北区":[34.518,132.508],
+  "広島市安芸区":[34.372,132.537],"広島市佐伯区":[34.365,132.361],"広島市":[34.392,132.455],
+  "呉市":[34.249,132.566],"竹原市":[34.342,132.907],"三原市":[34.398,133.079],
+  "尾道市":[34.409,133.205],"福山市":[34.486,133.362],"府中市":[34.568,133.236],
+  "三次市":[34.806,132.852],"庄原市":[34.858,133.017],"大竹市":[34.238,132.222],
+  "東広島市":[34.427,132.743],"廿日市市":[34.348,132.332],"安芸高田市":[34.666,132.704],
+  "江田島市":[34.223,132.444],"府中町":[34.392,132.503],"海田町":[34.372,132.536],
+  "熊野町":[34.336,132.584],"坂町":[34.341,132.514],"安芸太田町":[34.577,132.276],
+  "北広島町":[34.674,132.538],"大崎上島町":[34.253,132.906],"世羅町":[34.592,133.057],
+  "神石高原町":[34.716,133.256]
+};
+
+/* ===== 初期データ（2026年7月時点・公式サイト/自治体公開情報で確認済み） =====
+   住所は各社の公式サイト・広島県/自治体の公開情報で確認した実在の所在地。
+   座標は出所を verified に明記（official=公式サイト掲載値, navitime=地図事業者掲載値,
+   addr=住所から地図検索した概略値）。addr のものはピン位置が数十m〜数百mずれる場合が
+   あるため、正確な位置は各カードの「📍地図」ボタン（住所で検索）でご確認ください。
+   確認日: 2026-07-15 */
+const SEED = [
+ {name:"ヒロテック", area:"hiroshima", city:"広島市佐伯区", addr:"広島市佐伯区石内南5-2-1", lat:34.407997, lng:132.389620,
+  biz:"車体部品（ドア・排気系）、金型、治具、装置、建機部品。マツダ系Tier1", role:"sell",
+  phone:"082-941-7800", companyUrl:"https://www.hirotec.co.jp/", verified:"navitime"},
+ {name:"デルタ工業", area:"hiroshima", city:"安芸郡府中町", addr:"安芸郡府中町新地1-14", lat:34.386, lng:132.499,
+  biz:"自動車用シート、スライダー、リクライナー、シフター。マツダ系Tier1", role:"sell",
+  phone:"082-282-8211", companyUrl:"https://www.deltakogyo.co.jp/", verified:"addr"},
+ {name:"広島アルミニウム工業", area:"hiroshima", city:"広島市西区", addr:"広島市西区横川町3-6-3", lat:34.409776, lng:132.453256,
+  biz:"アルミダイカスト・砂型・金型・低圧鋳造および加工（EV・エンジン・ボディ部品）", role:"both",
+  phone:"082-233-1111", companyUrl:"https://www.hai.co.jp/", verified:"navitime"},
+ {name:"三菱重工業 広島製作所 観音工場", area:"hiroshima", city:"広島市西区", addr:"広島市西区観音新町4-6-22", lat:34.371021, lng:132.420922,
+  biz:"民間航空機構造部材・各種大型機械。特注大物加工品の調達ニーズ", role:"sell",
+  phone:"082-291-2112", companyUrl:"https://www.mhi.com/jp/company/location/hiroshimaw", verified:"navitime"},
+ {name:"中国工業 呉工場", area:"kure", city:"呉市", addr:"呉市広名田1-3-1", lat:34.240, lng:132.606,
+  biz:"高圧ガス（LPG）容器・タンク・鉄構製品。板金・溶接構造品。※登記本社は広島市中区小町", role:"sell",
+  phone:"0823-72-1212", companyUrl:"https://www.ckk-chugoku.co.jp/", verified:"addr"},
+ {name:"ディスコ 呉工場", area:"kure", city:"呉市", addr:"呉市広文化町1-23", lat:34.233192, lng:132.612588,
+  biz:"半導体精密加工装置・精密加工ツール（ダイシングブレード等）。精密部品調達", role:"sell",
+  phone:"0823-72-2211", companyUrl:"https://www.disco.co.jp/jp/network/japan/kure.html", verified:"official"},
+ {name:"サタケ", area:"higashi", city:"東広島市", addr:"東広島市西条西本町2-30", lat:34.427, lng:132.735,
+  biz:"精米機・食品産業総合機械の世界大手。装置部品・板金・機械加工品", role:"sell",
+  phone:"082-420-0001", companyUrl:"https://www.satake-japan.co.jp/", verified:"addr"},
+ {name:"尾道造船 尾道造船所", area:"mihara", city:"尾道市", addr:"尾道市山波町1005", lat:34.413103, lng:133.229811,
+  biz:"プロダクト/ケミカルタンカー・バラ積み船の建造。舶用鋼材・艤装品。※登記本社は神戸市", role:"sell",
+  phone:"0848-37-1111", companyUrl:"https://onozo.co.jp/", verified:"navitime"},
+ {name:"内海造船 瀬戸田工場（本社）", area:"mihara", city:"尾道市", addr:"尾道市瀬戸田町沢226-6", lat:34.296, lng:133.104,
+  biz:"フェリー・貨物船の建造・修繕。修繕向け短納期部品需要。因島工場も併設（因島土生町2418-2）", role:"sell",
+  phone:"0845-27-2111", companyUrl:"https://www.naikaizosen.co.jp/", verified:"addr"},
+ {name:"常石造船", area:"fukuyama", city:"福山市", addr:"福山市沼隈町常石1083", lat:34.386096, lng:133.298240,
+  biz:"ばら積み船大手（カムサマックス）。舶用部品・大物加工品の調達。修繕ドック併設", role:"sell",
+  phone:"084-987-1101", companyUrl:"https://www.tsuneishi.co.jp/", verified:"navitime"},
+ {name:"北川鉄工所", area:"fukuyama", city:"府中市", addr:"府中市元町77-1", lat:34.570, lng:133.236,
+  biz:"鋳造（金属素形材）、工作機器（旋盤用チャック国内シェア6割）、産業機械、立体駐車場", role:"both",
+  phone:"0847-45-4560", companyUrl:"https://www.kiw.co.jp/", verified:"addr"},
+ {name:"リョービ", area:"fukuyama", city:"府中市", addr:"府中市目崎町762", lat:34.567, lng:133.239,
+  biz:"アルミダイカスト世界トップクラス。建築用品・印刷機器。金型・二次加工の外注網", role:"both",
+  phone:"0847-41-1111", companyUrl:"https://www.ryobi-group.co.jp/", verified:"addr"},
+ {name:"ホーコス", area:"fukuyama", city:"福山市", addr:"福山市草戸町3-12-20", lat:34.487, lng:133.348,
+  biz:"工作機械（マシニング）・環境改善機器・建築設備機器。装置部品調達", role:"sell",
+  phone:"084-922-2600", companyUrl:"https://www.horkos.co.jp/", verified:"addr"},
+ {name:"シギヤ精機製作所", area:"fukuyama", city:"福山市", addr:"福山市箕島町5378", lat:34.469, lng:133.406,
+  biz:"円筒研削盤で国内トップシェア。精密部品・鋳物ベッドの調達", role:"sell",
+  phone:"084-954-2961", companyUrl:"https://www.shigiya.co.jp/", verified:"addr"},
+ {name:"キャステム", area:"fukuyama", city:"福山市", addr:"福山市御幸町中津原1808-1", lat:34.517, lng:133.377,
+  biz:"ロストワックス精密鋳造・MIM（金属粉末射出成形）。小物精密の協力工場候補", role:"partner",
+  phone:"084-955-2121", companyUrl:"https://www.castem.co.jp/", verified:"addr"},
+ {name:"ローツェ", area:"fukuyama", city:"福山市", addr:"福山市神辺町道上1588-2", lat:34.540, lng:133.386,
+  biz:"半導体ウエハ搬送装置。精密板金・機械加工部品の調達大", role:"sell",
+  phone:"084-960-0001", companyUrl:"https://www.rorze.com/", verified:"addr"}
+];
+
+/* ===== 状態管理 ===== */
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxNFLn9i__QXAfQdygJ3OWxfM0ihNp4veyAbpRD_xOhng75Ohk5RKYuDtRFDYO5UB9H/exec";
+let state = null;
+function freshState(){
+  return {
+    companies: SEED.map((s,i)=>({ id:i+1, status:"untouched", memo:"", addedAt: today(), ...s })),
+    logs: [],
+    gasUrl: DEFAULT_GAS_URL,
+    notifyEmail: "",
+    nextId: SEED.length + 1,
+    nextLogId: 1
+  };
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    state = raw ? JSON.parse(raw) : freshState();
+  }catch(e){ state = freshState(); }
+  // 既存ユーザーで未設定の場合のみ、デプロイ済みURLを自動補完（手動設定済みの値は上書きしない）
+  if(!state.gasUrl){ state.gasUrl = DEFAULT_GAS_URL; save(); }
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+/* ===== ユーティリティ ===== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* ===== 外部検索・周辺施設リンク生成 ===== */
+function imageSearchUrl(co){
+  return "https://www.google.com/search?tbm=isch&q=" + encodeURIComponent(co.name + " 会社");
+}
+function repSearchUrl(co){
+  const q = co.representative ? `"${co.representative}" ${co.name}` : `${co.name} 社長 代表者`;
+  return "https://www.google.com/search?q=" + encodeURIComponent(q);
+}
+function wikiSearchUrl(co){
+  return "https://ja.wikipedia.org/w/index.php?title=特別:検索&search=" + encodeURIComponent(co.name);
+}
+const NEARBY_CATEGORIES = [
+  ["🅿️","駐車場"], ["⛽","ガソリンスタンド"], ["🏪","コンビニ"],
+  ["🛒","スーパー"], ["🍴","レストラン"], ["🎁","お土産"]
+];
+function nearbyUrl(co, keyword){
+  if(typeof co.lat==="number" && typeof co.lng==="number"){
+    return `https://www.google.com/maps/search/${encodeURIComponent(keyword)}/@${co.lat},${co.lng},15z`;
+  }
+  return `https://www.google.com/maps/search/${encodeURIComponent(keyword + " " + (co.addr||co.city||"広島県"))}`;
+}
+function haversine(a,b,c,d){
+  const R=6371, r=x=>x*Math.PI/180;
+  const dLat=r(c-a), dLng=r(d-b);
+  const h=Math.sin(dLat/2)**2 + Math.cos(r(a))*Math.cos(r(c))*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+}
+function nearestBase(co){
+  if(co.lat==null) return null;
+  let best=null;
+  for(const b of BASES){
+    const d=haversine(b.lat,b.lng,co.lat,co.lng);
+    if(!best || d<best.d) best={d, name:b.name.replace("○○ ","")};
+  }
+  return best;
+}
+function guessAreaFromAddr(addr){
+  if(/福山|府中市/.test(addr)) return "fukuyama";
+  if(/三原|尾道/.test(addr)) return "mihara";
+  if(/東広島|竹原|大崎上島/.test(addr)) return "higashi";
+  if(/呉市|江田島/.test(addr)) return "kure";
+  return "hiroshima";
+}
+function coordsFromAddr(addr){
+  for(const [city,ll] of Object.entries(CITY_COORDS)){
+    if(addr.includes(city)){
+      return [ ll[0] + (Math.random()-.5)*0.012, ll[1] + (Math.random()-.5)*0.012 ];
+    }
+  }
+  return [null,null];
+}
+function today(){ return new Date().toISOString().slice(0,10); }
+
+/* ===== タブ切替 ===== */
+document.getElementById("nav").addEventListener("click", e=>{
+  const btn = e.target.closest("button[data-tab]");
+  if(!btn) return;
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b===btn));
+  document.querySelectorAll("section.tab").forEach(s=>s.classList.remove("show"));
+  document.getElementById("tab-"+btn.dataset.tab).classList.add("show");
+  if(btn.dataset.tab==="map"){ setTimeout(()=>{ bigmap && bigmap.invalidateSize(); },80); }
+});
+
+/* =========================================================
+   タブ1: 全体マップ (Leaflet)
+========================================================= */
+let bigmap=null, markerLayer=null, mapArea="all";
+function initMap(){
+  bigmap = L.map("bigmap",{zoomControl:true}).setView([34.42,132.9],9);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    maxZoom:18, attribution:'&copy; OpenStreetMap contributors'
+  }).addTo(bigmap);
+  markerLayer = L.layerGroup().addTo(bigmap);
+  BASES.forEach(b=>{
+    L.marker([b.lat,b.lng],{icon:L.divIcon({
+      className:"", html:'<div style="font-size:20px;text-shadow:0 0 3px #000">⭐</div>', iconSize:[20,20]
+    })}).addTo(bigmap).bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.note)}`);
+  });
+  renderMapChips();
+  renderMarkers();
+}
+function renderMapChips(){
+  const wrap = $("#mapAreaChips");
+  const items = [["all","全県"], ...Object.entries(AREAS)];
+  wrap.innerHTML = items.map(([k,v])=>
+    `<button class="chip ${mapArea===k?"on":""}" data-a="${k}">${v}</button>`).join("");
+  wrap.onclick = e=>{
+    const c = e.target.closest(".chip"); if(!c) return;
+    mapArea = c.dataset.a; renderMapChips(); renderMarkers();
+    const centers = {all:[[34.42,132.9],9], hiroshima:[[34.40,132.46],11], kure:[[34.25,132.58],11],
+      higashi:[[34.42,132.78],11], mihara:[[34.38,133.13],11], fukuyama:[[34.50,133.35],11]};
+    const c2 = centers[mapArea]; bigmap.setView(c2[0], c2[1]);
+  };
+}
+function renderMarkers(){
+  markerLayer.clearLayers();
+  state.companies
+    .filter(co=>co.lat!=null && !co.excludeVisit && (mapArea==="all" || co.area===mapArea))
+    .forEach(co=>{
+      const m = L.circleMarker([co.lat,co.lng],{
+        radius:9, color:STATUS_COLOR[co.status], weight:2.5,
+        fillColor:STATUS_COLOR[co.status], fillOpacity:.5
+      });
+      m.bindPopup(
+        `<b>${esc(co.name)}</b><br>${esc(co.biz||"")}<br>` +
+        `<span style="color:#888">${STATUS[co.status]} / ${ROLES[co.role]||"未設定"}</span><br>` +
+        `<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(co.name+" "+co.addr)}" target="_blank" rel="noopener">🚗 ここへのルート</a>`
+      );
+      markerLayer.addLayer(m);
+    });
+}
+
+/* =========================================================
+   タブ2: 企業リスト
+========================================================= */
+function fillAreaSelects(){
+  const opts = Object.entries(AREAS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
+  $("#fltArea").innerHTML = `<option value="">エリア: すべて</option>` + opts;
+  $("#addArea").innerHTML = opts;
+}
+["fltArea","fltStatus","fltRole","fltExisting","fltSort"].forEach(id=>{
+  document.addEventListener("change", e=>{ if(e.target.id===id) renderList(); });
+});
+["fltCapMin","fltEmpMin"].forEach(id=>{
+  document.addEventListener("input", e=>{ if(e.target.id===id) renderList(); });
+});
+$("#fltShowExcluded").addEventListener("change", renderList);
+$("#fltClearBtn").addEventListener("click", ()=>{
+  $("#fltArea").value=""; $("#fltStatus").value=""; $("#fltRole").value=""; $("#fltExisting").value=""; $("#fltSort").value="name";
+  $("#fltCapMin").value=""; $("#fltEmpMin").value=""; activeTagFilters.clear();
+  renderTagChips(); renderList();
+});
+let activeTagFilters = new Set();
+function allTags(){
+  const s = new Set();
+  state.companies.forEach(co=>(co.tags||[]).forEach(t=>s.add(t)));
+  return Array.from(s).sort((a,b)=>a.localeCompare(b,"ja"));
+}
+function renderTagChips(){
+  const tags = allTags();
+  $("#fltTagChips").innerHTML = tags.length ? tags.map(t=>
+    `<button class="chip ${activeTagFilters.has(t)?"on":""}" data-tag="${esc(t)}">${esc(t)}</button>`).join("")
+    : "";
+  $("#fltTagNote").textContent = tags.length
+    ? "加工タグで絞り込み（複数選択可）"
+    : "加工タグで絞り込み（「詳細取得」または「AI加工分類」を実行した企業にタグが付きます）";
+}
+$("#fltTagChips").addEventListener("click", e=>{
+  const c = e.target.closest(".chip"); if(!c) return;
+  const t = c.dataset.tag;
+  activeTagFilters.has(t) ? activeTagFilters.delete(t) : activeTagFilters.add(t);
+  renderTagChips(); renderList();
+});
+function renderList(){
+  const area=$("#fltArea").value, st=$("#fltStatus").value, role=$("#fltRole").value, sort=$("#fltSort").value;
+  const existingFlt = $("#fltExisting").value;
+  const capMin = parseFloat($("#fltCapMin").value); const hasCapMin = !isNaN(capMin);
+  const empMin = parseFloat($("#fltEmpMin").value); const hasEmpMin = !isNaN(empMin);
+  let arr = state.companies.filter(co=>
+    (!area||co.area===area) && (!st||co.status===st) && (!role||co.role===role) &&
+    (!existingFlt || (existingFlt==="yes" ? !!co.existingClient : !co.existingClient)) &&
+    (!hasCapMin || (typeof co.capital==="number" && co.capital>=capMin)) &&
+    (!hasEmpMin || (typeof co.employees==="number" && co.employees>=empMin)) &&
+    (activeTagFilters.size===0 || Array.from(activeTagFilters).every(t=>(co.tags||[]).includes(t))) &&
+    ($("#fltShowExcluded").checked || !co.excludeVisit)
+  );
+  if(sort==="dist"){
+    arr.sort((a,b)=>{
+      const da=nearestBase(a), db=nearestBase(b);
+      return (da?da.d:9e9)-(db?db.d:9e9);
+    });
+  }else if(sort==="status"){
+    const ord={prospect:0,visited:1,untouched:2,client:3};
+    arr.sort((a,b)=>ord[a.status]-ord[b.status]);
+  }else if(sort==="capital"){
+    arr.sort((a,b)=>(typeof b.capital==="number"?b.capital:-1)-(typeof a.capital==="number"?a.capital:-1));
+  }else if(sort==="employees"){
+    arr.sort((a,b)=>(typeof b.employees==="number"?b.employees:-1)-(typeof a.employees==="number"?a.employees:-1));
+  }else{
+    arr.sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+  }
+  $("#coList").innerHTML = arr.length ? arr.map(cardHTML).join("") :
+    `<p class="note">該当する企業がありません。絞り込み条件を緩めてみてください。</p>`;
+  $("#coCount").textContent = `登録${state.companies.length}件中 ${arr.length}件を表示`;
+}
+function statField(label, key, co, type){
+  const v = co[key];
+  const val = (v===undefined || v===null) ? "" : v;
+  return `<div class="stat"><b>${label}</b>
+    <input type="${type||'text'}" data-act="${key}" value="${esc(val)}" placeholder="未取得" inline-edit="1"></div>`;
+}
+function cardHTML(co){
+  const nb = nearestBase(co);
+  const roleBadge = co.role ? `<span class="badge b-role-${co.role}">${ROLES[co.role]}</span>` : "";
+  const existingBadge = co.existingClient ? `<span class="badge b-existing">既取引先</span>` : "";
+  const excludeBadge = co.excludeVisit ? `<span class="badge b-exclude">訪問対象外</span>` : "";
+  const statGrid = `<div class="stat-grid">
+      ${statField("資本金(参考値)", "capital", co, "number")}
+      ${statField("従業員数", "employees", co, "number")}
+      ${statField("設立", "founded", co)}
+      ${statField("代表者", "representative", co)}
+      ${statField("電話番号", "phone", co)}
+      ${statField("会社URL", "companyUrl", co)}
+    </div>`;
+  const financeHTML = co.finance
+    ? `<div class="fin-note">売上高: ${co.finance.sales!=null ? Number(co.finance.sales).toLocaleString("ja-JP") : "データなし"}
+       ${co.finance.fiscalYear?`（${esc(co.finance.fiscalYear)}期）`:""}
+       ${co.finance.netIncome!=null?` ／ 純利益: ${Number(co.finance.netIncome).toLocaleString("ja-JP")}`:""}
+       <br>※有価証券報告書提出企業のみ収録。中小の協力工場は通常データなし</div>`
+    : `<div class="fin-note">売上高: データなし（非上場・小規模の場合、公開財務情報がないのが通常です）</div>`;
+  const tagsHTML = (co.tags && co.tags.length)
+    ? `<div class="tagwrap">${co.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>` : "";
+  const gbizStatusHTML = co.gbizInfoStatus
+    ? `<div class="fin-note">gBizINFO照会結果: <b style="color:${co.gbizInfoStatus==='取得情報あり'?'var(--ok)':'var(--steel-300)'}">${esc(co.gbizInfoStatus)}</b>
+       ${co.listedStatus ? ` ／ ${esc(co.listedStatus)}` : ""}</div>`
+    : "";
+  return `<div class="card ${co.excludeVisit?"excluded":""}" data-id="${co.id}">
+    <div class="head">
+      <div>
+        <h3>${esc(co.name)}</h3>
+        <div class="meta">
+          <span class="badge b-area">${AREAS[co.area]||""}</span> ${roleBadge} ${existingBadge} ${excludeBadge}<br>
+          ${esc(co.addr||co.city||"")}
+        </div>
+        ${nb?`<div class="dist">${nb.name}から 約${nb.d.toFixed(1)} km</div>`:""}
+        <div class="desc">${esc(co.biz||co.businessSummary||"")}</div>
+      </div>
+      <div class="stamp st-${co.status}">${STATUS[co.status]}</div>
+    </div>
+    <div class="flagbar">
+      <label><input type="checkbox" data-act="existingClient" ${co.existingClient?"checked":""}>既取引先</label>
+      <label><input type="checkbox" data-act="excludeVisit" ${co.excludeVisit?"checked":""}>訪問対象外にする</label>
+    </div>
+    ${statGrid}
+    ${financeHTML}
+    ${gbizStatusHTML}
+    ${tagsHTML}
+    ${typeof verifiedHTML==="function" ? verifiedHTML(co) : ""}
+    ${typeof aiMatchHTML==="function" ? aiMatchHTML(co) : ""}
+    <div class="row">
+      <select data-act="status">
+        ${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${co.status===k?"selected":""}>${v}</option>`).join("")}
+      </select>
+      <select data-act="role">
+        <option value="">位置づけ未設定</option>
+        ${Object.entries(ROLES).map(([k,v])=>`<option value="${k}" ${co.role===k?"selected":""}>${v}</option>`).join("")}
+      </select>
+      <button class="btn small ghost" data-act="map">📍 地図</button>
+      <a class="btn small ghost" style="text-decoration:none"
+         href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(co.name+" "+co.addr)}" target="_blank" rel="noopener">🚗 ルート</a>
+      <a class="btn small ghost" style="text-decoration:none" href="${imageSearchUrl(co)}" target="_blank" rel="noopener">🖼️ 画像検索</a>
+      <a class="btn small ghost" style="text-decoration:none" href="${repSearchUrl(co)}" target="_blank" rel="noopener">👤 代表者検索</a>
+      <a class="btn small ghost" style="text-decoration:none" href="${wikiSearchUrl(co)}" target="_blank" rel="noopener">📖 Wikipedia</a>
+      <button class="btn small ghost" data-act="del" style="color:var(--danger)">削除</button>
+    </div>
+    <details class="webinfo-box">
+      <summary>🗺️ 周辺施設を探す（駐車場・GS・コンビニ等）</summary>
+      <div class="row" style="margin-top:7px">
+        ${NEARBY_CATEGORIES.map(([icon,label])=>
+          `<a class="btn small ghost" style="text-decoration:none" href="${nearbyUrl(co,label)}" target="_blank" rel="noopener">${icon} ${esc(label)}</a>`
+        ).join("")}
+      </div>
+      <p class="note" style="margin:7px 0 0">※各リンクは<b>訪問先企業を出発地</b>にした車ルートで開くため、企業のピンが必ず表示されます（GoogleマップのURL仕様上、ピンの色は指定できません）。</p>
+    </details>
+    <div class="row">
+      <button class="btn small ghost" data-act="detail">🔍 詳細取得(gBiz)</button>
+      <button class="btn small ghost" data-act="classify">🏷️ AI加工分類</button>
+      <button class="btn small ghost" data-act="webinfo">🌐 Web検索(基礎情報)</button>
+      <button class="btn small ghost" data-act="aimatch">💗 AI相性判定</button>
+    </div>
+    ${co.webInfoText ? `<details class="webinfo-box">
+      <summary>🌐 会社情報（Web検索結果・${esc(co.webInfoAt||"")}）</summary>
+      <div class="webinfo-body">${esc(co.webInfoText)}</div>
+    </details>` : ""}
+    <div class="mapwrap hidden"></div>
+    <label class="fld">メモ</label>
+    <textarea data-act="memo" placeholder="キーマン・課題・提案の切り口など">${esc(co.memo||"")}</textarea>
+  </div>`;
+}
+$("#coList").addEventListener("change", e=>{
+  const card = e.target.closest(".card"); if(!card) return;
+  const co = state.companies.find(c=>c.id==card.dataset.id); if(!co) return;
+  const act = e.target.dataset.act;
+  if(act==="status"){ co.status = e.target.value; save(); renderMarkers(); renderList(); }
+  if(act==="role"){ co.role = e.target.value; save(); }
+  if(act==="existingClient"){ co.existingClient = e.target.checked; save(); renderList(); }
+  if(act==="excludeVisit"){ co.excludeVisit = e.target.checked; save(); renderList(); renderMarkers(); }
+});
+const NUMERIC_FIELDS = ["capital","employees"];
+const TEXT_FIELDS = ["founded","representative","phone","companyUrl"];
+$("#coList").addEventListener("input", e=>{
+  const act = e.target.dataset.act;
+  const card = e.target.closest(".card"); if(!card) return;
+  const co = state.companies.find(c=>c.id==card.dataset.id); if(!co) return;
+  if(act==="memo"){ co.memo = e.target.value; save(); return; }
+  if(NUMERIC_FIELDS.includes(act)){
+    const v = e.target.value.trim();
+    co[act] = v==="" ? null : Number(v);
+    save();
+  }else if(TEXT_FIELDS.includes(act)){
+    co[act] = e.target.value;
+    save();
+  }
+});
+$("#coList").addEventListener("click", async e=>{
+  const btn = e.target.closest("[data-act]"); if(!btn) return;
+  const card = e.target.closest(".card");
+  const co = state.companies.find(c=>c.id==card.dataset.id); if(!co) return;
+  if(btn.dataset.act==="map"){
+    const wrap = card.querySelector(".mapwrap");
+    if(wrap.classList.contains("hidden")){
+      const q = encodeURIComponent(co.name + " " + (co.addr||co.city||"広島県"));
+      wrap.innerHTML = `<iframe loading="lazy" src="https://maps.google.com/maps?q=${q}&z=15&output=embed"></iframe>`;
+      wrap.classList.remove("hidden");
+      btn.textContent = "📍 閉じる";
+    }else{
+      wrap.classList.add("hidden"); wrap.innerHTML = "";
+      btn.textContent = "📍 地図";
+    }
+  }
+  if(btn.dataset.act==="del"){
+    if(confirm(`「${co.name}」を削除しますか？（訪問ログは残ります）`)){
+      state.companies = state.companies.filter(c=>c.id!==co.id);
+      save(); renderList(); renderMarkers(); fillCoSelects();
+    }
+  }
+  if(btn.dataset.act==="detail"){
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = "取得中…";
+    try{
+      await fetchDetailForCompany(co);
+      save(); renderList(); renderTagChips();
+    }catch(err){
+      alert("詳細取得に失敗しました: " + err.message);
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+  if(btn.dataset.act==="classify"){
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = "分類中…";
+    try{
+      await classifyProcessing(co);
+      save(); renderList(); renderTagChips();
+    }catch(err){
+      alert("AI加工分類に失敗しました: " + err.message);
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+  if(btn.dataset.act==="webinfo"){
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = "検索中…(最大40秒)";
+    try{
+      const data = await callGAS({ action:"webInfo", name: co.name, addr: co.addr||co.city||"" }, 45000);
+      co.webInfoText = data.text || "(該当情報が見つかりませんでした)";
+      co.webInfoAt = today();
+      save(); renderList();
+    }catch(err){
+      alert("Web検索に失敗しました: " + err.message);
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+});
+
+/* ===== gBizINFO詳細取得（法人番号が無い場合は名称検索で補完） ===== */
+async function fetchDetailForCompany(co){
+  let corpNo = co.corporateNumber;
+  if(!corpNo){
+    const found = await callGAS({ action:"gbiz", keyword: co.name });
+    const hit = (found.results||[]).find(r=>r.name===co.name) || (found.results||[])[0];
+    if(!hit || !hit.corporateNumber){
+      // gBizINFOに該当なし＝取得できる情報がない、というのも正常な結果として扱う
+      co.gbizInfoStatus = "情報なし";
+      co.listedStatus = "";
+      return;
+    }
+    corpNo = hit.corporateNumber;
+  }
+  const data = await callGAS({ action:"gbizDetail", corporateNumber: corpNo });
+  const d = data.detail || {};
+  co.corporateNumber = corpNo;
+  co.representative = d.representative || co.representative || "";
+  co.capital = (typeof d.capital === "number") ? d.capital : co.capital;
+  co.employees = (typeof d.employees === "number") ? d.employees : co.employees;
+  co.founded = d.founded || co.founded || "";
+  co.businessSummary = d.businessSummary || co.businessSummary || "";
+  co.businessItems = d.businessItems || co.businessItems || "";
+  co.companyUrl = d.companyUrl || co.companyUrl || "";
+  co.finance = d.finance || co.finance || null;
+  if(!co.biz && co.businessSummary) co.biz = co.businessSummary;
+
+  const hasInfo = !!(d.representative || (typeof d.capital==="number") || (typeof d.employees==="number")
+    || d.founded || d.businessSummary || d.businessItems || d.companyUrl);
+  co.gbizInfoStatus = hasInfo ? "取得情報あり" : "情報なし";
+  // 財務情報(有価証券報告書相当)が取得できた場合のみ「上場企業」の可能性が高いと推定する。
+  // gBizINFOには上場/非上場を直接示すフラグが無いため、あくまで推定表示であることに留意。
+  co.listedStatus = co.finance ? "上場企業(推定)" : "非上場 または データなし(推定)";
+}
+
+/* ===== AIによる加工タグ分類（既存のClaude中継を利用） ===== */
+async function classifyProcessing(co){
+  const src = [co.biz, co.businessSummary, co.businessItems, co.memo].filter(Boolean).join(" / ");
+  if(!src){ throw new Error("分類元になる事業内容の情報がありません（先に詳細取得かメモ入力を）"); }
+  const prompt = `以下は金属加工関連企業の事業内容テキストです。この企業が対応していると推定される「加工の種類」を、\n`
+    + `次のようなタグの中から当てはまるものだけ選び、日本語のタグ名のみをカンマ区切りで出力してください（前置き・説明・番号は一切不要。該当が無ければ「不明」とだけ出力）。\n`
+    + `タグ候補例: 切削加工, プレス加工, 板金加工, 溶接, 鋳造, 鍛造, ダイカスト, 樹脂成形, メッキ表面処理, 熱処理, 研削研磨, 組立, 設計, 装置製造, 材料商社\n\n`
+    + `事業内容: ${src}\n\n出力形式の例: 切削加工,溶接,組立`;
+  const data = await callGAS({ action:"claude", prompt });
+  const text = (data.text||"").trim();
+  const tags = text.split(/[,、\n]/).map(s=>s.trim()).filter(s=>s && s!=="不明").slice(0,8);
+  co.tags = tags;
+}
+/* 手入力追加 */
+$("#addBtn").addEventListener("click", ()=>{
+  const name = $("#addName").value.trim();
+  if(!name){ alert("社名を入力してください"); return; }
+  const addr = $("#addAddr").value.trim();
+  const [lat,lng] = coordsFromAddr(addr);
+  state.companies.push({
+    id: state.nextId++, addedAt: today(), name, addr, city:addr,
+    area: addr ? guessAreaFromAddr(addr) : $("#addArea").value,
+    lat, lng, biz: $("#addBiz").value.trim(), phone: $("#addPhone").value.trim(),
+    role:"", status:"untouched", memo: lat==null?"":"※地図位置は市町中心の概略"
+  });
+  save(); renderList(); renderMarkers(); fillCoSelects();
+  $("#addName").value = $("#addAddr").value = $("#addBiz").value = $("#addPhone").value = "";
+});
+
+/* =========================================================
+   GAS通信（text/plainでプリフライト回避／タイムアウト付き）
+========================================================= */
+async function callGAS(payload, timeoutMs){
+  if(!state.gasUrl) throw new Error("GASのURLが未設定です（⚙️設定タブで登録してください）");
+  const timeout = timeoutMs || 25000;
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), timeout);
+  let res;
+  try{
+    res = await fetch(state.gasUrl, {
+      method:"POST",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
+    });
+  }catch(err){
+    if(err.name==="AbortError"){
+      throw new Error(`GASからの応答がありません（${Math.round(timeout/1000)}秒でタイムアウト）。GAS側のデプロイ状況・実行ログをご確認ください。`);
+    }
+    throw new Error("通信エラー: " + err.message);
+  }finally{
+    clearTimeout(timer);
+  }
+  if(!res.ok) throw new Error("GAS応答エラー: HTTP " + res.status);
+  let data;
+  try{ data = await res.json(); }
+  catch(err){ throw new Error("GASの応答をJSONとして解釈できませんでした（コードの貼り付けミス・再デプロイ忘れの可能性）"); }
+  if(data.error) throw new Error(data.error);
+  return data;
+}
+
+/* gBizINFO検索 */
+$("#gbBtn").addEventListener("click", async ()=>{
+  const kw = $("#gbKw").value.trim();
+  if(!kw){ alert("キーワードを入力してください"); return; }
+  const btn = $("#gbBtn"); btn.disabled = true; btn.textContent = "検索中…";
+  $("#gbResults").innerHTML = "";
+  try{
+    const data = await callGAS({ action:"gbiz", keyword:kw });
+    const existingNames = new Set(state.companies.map(c=>c.name));
+    const all = data.results || [];
+    const list = all.filter(r=>!existingNames.has(r.name));
+    const skipped = all.length - list.length;
+    if(!list.length){
+      $("#gbResults").innerHTML = `<p class="note">${all.length ? "ヒットした企業は全て登録済みです。" : "該当なし。"}キーワードを変えてみてください（例: 鉄工 / 製作所 / 金属 / 鍍金）。</p>`;
+    }
+    else{
+      const rows = list.map((r,i)=>{
+        const hint = [
+          typeof r.capital==="number" ? "資本金"+r.capital.toLocaleString("ja-JP") : null,
+          typeof r.employees==="number" ? "従業員"+r.employees.toLocaleString("ja-JP")+"人" : null
+        ].filter(Boolean).join(" ／ ");
+        return `<div class="gb-item"><div><b>${esc(r.name)}</b><br><span style="color:var(--steel-300)">${esc(r.location||"")}${hint?"　"+esc(hint):""}</span></div>
+         <button class="btn small" data-gb="${i}">追加</button></div>`;
+      }).join("");
+      $("#gbResults").innerHTML = `<p class="note">${list.length}件ヒット（追加すると同時にgBizINFO詳細情報も自動取得します）${skipped?` ／ 登録済み${skipped}件は非表示`:""}</p>` + rows;
+      $("#gbResults").dataset.payload = JSON.stringify(list);
+    }
+  }catch(err){
+    $("#gbResults").innerHTML = `<p class="note" style="color:var(--danger)">${esc(err.message)}</p>`;
+  }finally{ btn.disabled=false; btn.textContent="検索"; }
+});
+$("#gbResults").addEventListener("click", async e=>{
+  const btn = e.target.closest("[data-gb]"); if(!btn) return;
+  const list = JSON.parse($("#gbResults").dataset.payload || "[]");
+  const r = list[+btn.dataset.gb]; if(!r) return;
+  if(state.companies.some(c=>c.name===r.name)){ alert("同名の企業が既に登録されています"); return; }
+  btn.disabled = true; btn.textContent = "追加中…";
+  const addr = r.location || "";
+  const [lat,lng] = coordsFromAddr(addr);
+  const co = {
+    id: state.nextId++, addedAt: today(), name:r.name, addr, city:addr,
+    area: guessAreaFromAddr(addr), lat, lng,
+    biz: r.biz || "", role:"", status:"untouched",
+    corporateNumber: r.corporateNumber || "",
+    capital: (typeof r.capital==="number") ? r.capital : null,
+    employees: (typeof r.employees==="number") ? r.employees : null,
+    memo: lat==null ? "" : "※地図位置は市町中心の概略"
+  };
+  state.companies.push(co);
+  // 追加と同時に詳細情報も自動取得（失敗しても追加自体は成功扱い）
+  try{ await fetchDetailForCompany(co); }catch(e){ /* 取得失敗は静かに無視。カードから手動再取得可 */ }
+  save(); renderList(); renderMarkers(); fillCoSelects(); renderTagChips();
+  btn.textContent = "追加済"; 
+});
+
+/* ===== 広島県内 一括インポート（実在企業データで最大目安100件を目指す） ===== */
+const BULK_IMPORT_KEYWORDS = ["鉄工","製作所","金属工業","精密","板金","鋳造","機械製作所","工業所","金属加工","溶接"];
+$("#bulkImportBtn").addEventListener("click", async ()=>{
+  const btn = $("#bulkImportBtn"); const msg = $("#bulkImportMsg");
+  btn.disabled = true;
+  const TARGET = Math.max(1, Math.min(500, parseInt($("#bulkTarget").value, 10) || 100));
+  const includeVisited = $("#bulkIncludeVisited").checked;
+  let added = 0;
+  let errCount = 0, lastErr = "";
+  try{
+    for(const kw of BULK_IMPORT_KEYWORDS){
+      if(added >= TARGET) break;
+      msg.textContent = `「${kw}」を検索中…（新規${added}/${TARGET}件・登録合計${state.companies.length}件）`;
+      let data;
+      try{ data = await callGAS({ action:"gbiz", keyword:kw }); }
+      catch(err){ errCount++; lastErr = err.message; msg.textContent = `⚠️「${kw}」検索でエラー: ${err.message}（続行します）`; continue; }
+      // 既存企業も対象にする場合は「未訪問(untouched)」以外の企業名だけを重複除外リストから外す
+      const existingNames = new Set(
+        state.companies
+          .filter(c => includeVisited ? c.status==="untouched" : true)
+          .map(c=>c.name)
+      );
+      const hits = (data.results||[]).filter(r=>!existingNames.has(r.name));
+      for(const r of hits){
+        if(added >= TARGET) break;
+        const addr = r.location || "";
+        const [lat,lng] = coordsFromAddr(addr);
+        state.companies.push({
+          id: state.nextId++, addedAt: today(), name:r.name, addr, city:addr,
+          area: guessAreaFromAddr(addr), lat, lng,
+          biz: r.biz || "", role:"", status:"untouched",
+          corporateNumber: r.corporateNumber || "",
+          capital: (typeof r.capital==="number") ? r.capital : null,
+          employees: (typeof r.employees==="number") ? r.employees : null,
+          memo: lat==null ? "" : "※地図位置は市町中心の概略"
+        });
+        added++;
+      }
+      save(); renderList(); renderMarkers(); fillCoSelects(); renderTagChips();
+    }
+    if(added===0 && errCount===BULK_IMPORT_KEYWORDS.length){
+      msg.textContent = `❌ 全キーワードで検索に失敗しました（0件）。最後のエラー: ${lastErr}`;
+    }else if(added===0){
+      msg.textContent = `完了：新規追加は0件でした（合計${state.companies.length}件）。ヒットした企業はすべて登録済みの可能性があります。${errCount?`／${errCount}件のキーワードで検索エラー（最後: ${lastErr}）`:""}`;
+    }else{
+      msg.textContent = `完了：${added}件を新規追加しました（合計${state.companies.length}件）。各社の詳細は「詳細取得」ボタンで取得してください。${errCount?`／${errCount}件のキーワードで検索エラー`:""}`;
+    }
+  }catch(err){
+    msg.textContent = "❌ " + err.message;
+  }finally{
+    btn.disabled = false;
+  }
+});
+const COMPANY_STRENGTHS = `【自社（○○）の強み・前提】
+- 1920年創業の加工製品商社。材料調達から鍛造・機械加工・表面処理・品質保証まで一括対応
+- 全国約1,900社の協力工場ネットワーク＋グループに鍛造工場・機械加工工場を保有
+- 完成品メーカー約4,400社との取引実績、8万点超の製造品実績データベース
+- 医療用の小物精密部品から数百キロ級のインフラ大物部品まで対応レンジが広い
+- 品質管理室を持つ「品質保証できる商社」。調達量のスケールメリットでコスト削減提案が可能
+- 広島県内は広島駅前の広島営業所と福山物流センターの2拠点体制。地場で即応できる
+- 訪問先の町工場は「販売先」にも「協力工場（仕事をお出しする先）」にもなり得る`;
+
+function briefPrompt(co){
+  return `あなたは金属加工品専門商社の営業支援AIです。
+${COMPANY_STRENGTHS}
+
+【本日の訪問先】
+社名: ${co.name}
+所在地: ${co.addr||co.city||"広島県"}
+事業内容: ${co.biz||"不明（金属加工関連）"}
+当社での位置づけ: ${ROLES[co.role]||"未設定（両面の可能性を検討）"}
+現在の関係: ${STATUS[co.status]}
+営業メモ: ${co.memo||"なし"}
+
+【出力してほしいもの】飛び込み・初回訪問前に車内で30秒で読める簡潔さで。
+①この会社が抱えていそうな調達・生産の課題（3点、業種から推定）
+②「発注側」として入るトーク（協力工場候補として仕事をお出しする切り口）※位置づけ的に不自然なら省略可
+③「販売側」として入るトーク（材料・加工品を売る切り口。具体的な品目仮説つき）
+④想定される断り文句と切り返し（3組）
+⑤初回訪問で必ず確認すべきこと（5点）
+現場でそのまま口に出せる言葉で。前置きや締めの挨拶文は不要。`;
+}
+async function askClaude(prompt, outEl){
+  outEl.innerHTML = `<span class="spin"></span>生成中…（10〜20秒）`;
+  try{
+    const data = await callGAS({ action:"claude", prompt }, 40000);
+    outEl.textContent = data.text || "(応答が空でした)";
+  }catch(err){
+    outEl.innerHTML = `<span style="color:var(--danger)">エラー: ${esc(err.message)}</span>`;
+  }
+}
+$("#aiBtn").addEventListener("click", ()=>{
+  const co = state.companies.find(c=>c.id==$("#aiCo").value);
+  if(!co){ alert("訪問先を選択してください"); return; }
+  askClaude(briefPrompt(co), $("#aiOut"));
+});
+$("#aiQBtn").addEventListener("click", ()=>{
+  const co = state.companies.find(c=>c.id==$("#aiCo").value);
+  const q = $("#aiQ").value.trim();
+  if(!q){ alert("質問を入力してください"); return; }
+  const ctx = co ? `対象企業: ${co.name}（${co.biz||""}）\n` : "";
+  askClaude(`あなたは金属加工品専門商社の営業支援AIです。\n${COMPANY_STRENGTHS}\n\n${ctx}質問: ${q}\n\n簡潔に、実践的に答えてください。`, $("#aiOut"));
+});
+
+/* =========================================================
+   タブ4: 訪問ログ
+========================================================= */
+function fillCoSelects(){
+  const opts = state.companies.slice().sort((a,b)=>a.name.localeCompare(b.name,"ja"))
+    .map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  $("#aiCo").innerHTML = `<option value="">訪問先を選択…</option>` + opts;
+  $("#lgCo").innerHTML = `<option value="">訪問先を選択…</option>` + opts;
+}
+$("#lgBtn").addEventListener("click", ()=>{
+  const coId = +$("#lgCo").value;
+  const co = state.companies.find(c=>c.id===coId);
+  if(!co){ alert("訪問先を選択してください"); return; }
+  state.logs.push({
+    id: state.nextLogId++,
+    companyId: coId,
+    date: $("#lgDate").value || today(),
+    person: $("#lgPerson").value.trim(),
+    temp: $("#lgTemp").value,
+    memo: $("#lgMemo").value.trim(),
+    next: $("#lgNext").value.trim(),
+    due: $("#lgDue").value || ""
+  });
+  if(co.status==="untouched") co.status="visited";
+  if($("#lgTemp").value==="A" && co.status!=="client") co.status="prospect";
+  save();
+  $("#lgPerson").value = $("#lgMemo").value = $("#lgNext").value = $("#lgDue").value = "";
+  renderLogs(); renderList(); renderMarkers();
+  alert("記録しました");
+});
+function renderLogs(){
+  const t = today();
+  const soon = new Date(Date.now() + 7*864e5).toISOString().slice(0,10);
+  const arr = state.logs.slice().sort((a,b)=>{
+    const da = a.due || "9999-12-31", db = b.due || "9999-12-31";
+    return da===db ? b.date.localeCompare(a.date) : da.localeCompare(db);
+  });
+  $("#logList").innerHTML = arr.length ? arr.map(lg=>{
+    const co = state.companies.find(c=>c.id===lg.companyId);
+    const cls = lg.due && lg.due < t ? "overdue" : (lg.due && lg.due <= soon ? "due-soon" : "");
+    return `<div class="log ${cls}">
+      <div class="lg-head">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+          <input type="checkbox" class="mailChk" data-logid="${lg.id}" style="accent-color:var(--molten)">
+          <span>${esc(lg.date)} ${esc(lg.person||"")}</span>
+        </label>
+        <span class="temp temp-${lg.temp}">温度 ${lg.temp}</span></div>
+      <div class="lg-co">${esc(co?co.name:"(削除済み企業)")}</div>
+      <div class="lg-body">${esc(lg.memo||"")}</div>
+      ${lg.next?`<div class="lg-next">▶ 次: ${esc(lg.next)}${lg.due?` ｜期限 ${esc(lg.due)}${lg.due<t?" ⚠期限超過":""}`:""}</div>`:""}
+      <div class="row"><button class="btn small ghost" data-dellog="${lg.id}" style="color:var(--danger)">削除</button></div>
+    </div>`;
+  }).join("") : `<p class="note">まだ記録がありません。最初の一件を記録しましょう。</p>`;
+}
+$("#logList").addEventListener("click", e=>{
+  const btn = e.target.closest("[data-dellog]"); if(!btn) return;
+  if(confirm("この記録を削除しますか？")){
+    state.logs = state.logs.filter(l=>l.id!=+btn.dataset.dellog);
+    save(); renderLogs();
+  }
+});
+
+/* ===== 訪問履歴メール送信 ===== */
+function updateMailModeUI(){
+  const mode = $("#mailMode").value;
+  $("#mailRangeRow").style.display = mode==="range" ? "flex" : "none";
+  $("#mailSelectNote").style.display = mode==="select" ? "block" : "none";
+}
+$("#mailMode").addEventListener("change", updateMailModeUI);
+function logToText(lg){
+  const co = state.companies.find(c=>c.id===lg.companyId);
+  return `【${lg.date}】${co?co.name:"(削除済み企業)"}\n`
+    + `面談相手: ${lg.person||"―"} ／ 温度感: ${lg.temp}\n`
+    + `${lg.memo||"(メモなし)"}\n`
+    + (lg.next ? `次アクション: ${lg.next}${lg.due?"（期限 "+lg.due+"）":""}\n` : "");
+}
+$("#mailSendBtn").addEventListener("click", async ()=>{
+  const to = (state.notifyEmail || "").trim();
+  if(!to){ $("#mailMsg").textContent = "⚠️ 送信先未設定です。⚙️設定タブでメールアドレスを登録してください。"; return; }
+
+  const mode = $("#mailMode").value;
+  let targets = [];
+  if(mode==="range"){
+    const from = $("#mailFrom").value, to2 = $("#mailTo").value;
+    if(!from || !to2){ $("#mailMsg").textContent = "⚠️ 開始日と終了日を指定してください。"; return; }
+    targets = state.logs.filter(lg=>lg.date>=from && lg.date<=to2);
+  }else{
+    const ids = Array.from(document.querySelectorAll(".mailChk:checked")).map(el=>+el.dataset.logid);
+    if(!ids.length){ $("#mailMsg").textContent = "⚠️ 送信する記録にチェックを入れてください。"; return; }
+    targets = state.logs.filter(lg=>ids.includes(lg.id));
+  }
+  if(!targets.length){ $("#mailMsg").textContent = "該当する記録がありません。"; return; }
+
+  targets.sort((a,b)=>a.date.localeCompare(b.date));
+  const subject = $("#mailSubject").value.trim() ||
+    `【広島開拓ノート】訪問履歴 ${targets[0].date}〜${targets[targets.length-1].date}（${targets.length}件）`;
+  const body = `広島開拓ノートより訪問履歴を送付します（${targets.length}件）\n\n`
+    + targets.map(logToText).join("\n----------------\n\n");
+
+  const btn = $("#mailSendBtn"); btn.disabled = true; btn.textContent = "送信中…";
+  $("#mailMsg").textContent = "";
+  try{
+    await callGAS({ action:"sendMail", to, subject, body });
+    $("#mailMsg").textContent = `✅ ${to} 宛に送信しました（${targets.length}件）`;
+  }catch(err){
+    $("#mailMsg").textContent = "❌ " + err.message;
+  }finally{
+    btn.disabled = false; btn.textContent = "📧 送信する";
+  }
+});
+
+/* =========================================================
+   タブ5: 自社の武器（業種別ワンページ）
+========================================================= */
+const PITCH = {
+auto: {
+ title:"自動車部品メーカー様へ",
+ items:[
+  "<b>調達の一本化:</b> 特殊鋼材料〜鍛造・機械加工・表面処理まで、複数外注先をまとめて当社1社に集約。発注・検収・支払の工数を削減できます。",
+  "<b>生産変動への保険:</b> 約1,900社の協力工場ネットワークで、増産時のキャパ不足・既存外注先の廃業リスクをカバー。",
+  "<b>コストダウン提案:</b> 8万点超の製造品実績から工法変更（切削→鍛造化・鋳造化など）のVA/VE提案が可能。",
+  "<b>品質保証:</b> 品質管理室を持つ商社です。図面公差・材料証明・検査成績書まで責任を持って納入します。",
+  "<b>地場対応:</b> 広島駅前の営業所からすぐ伺えます。困りごとは当日ヒアリングに。"
+ ],
+ flow:["図面・現物","工法・工場選定","試作・評価","量産・品質保証","納入"]
+},
+ship: {
+ title:"造船・重工関連メーカー様へ",
+ items:[
+  "<b>大物から小物まで:</b> 数百キロ級のインフラ・舶用部品から精密小物まで、1社で調達レンジをカバー。",
+  "<b>鍛造品に強い:</b> グループに鍛造工場を保有。シャフト・フランジ類の材料〜鍛造〜機械加工の一貫手配。",
+  "<b>修繕・短納期対応:</b> 福山物流センターの在庫・物流機能で、修繕案件の急ぎ部品にも対応しやすい体制。",
+  "<b>多品種一品モノ歓迎:</b> 一品一様の特注品こそ、実績データベースと工場ネットワークが活きます。",
+  "<b>材料証明の確実性:</b> 船級・規格対応のミルシート管理も含めてお任せください。"
+ ],
+ flow:["引合・仕様確認","材料手配","鍛造/加工","検査・証明書","納入"]
+},
+machine: {
+ title:"産業機械・装置メーカー様へ",
+ items:[
+  "<b>装置部品まるごと調達:</b> フレーム溶接構造品、精密板金、切削部品、購入品まで束ねて手配。設計者の調達負荷を軽減。",
+  "<b>試作から量産まで:</b> 1個の試作も、リピートの量産も。フェーズに応じて最適な工場を選び直します。",
+  "<b>納期管理を代行:</b> 加工先の納期チェック機能を持つ商社です。「外注の進捗確認」の仕事を当社が巻き取ります。",
+  "<b>設計相談OK:</b> 図面段階で「作りやすく安くなる形状」をフィードバック。VA/VE込みでご相談ください。",
+  "<b>半導体・食品機械の実績:</b> クリーン用途・食品衛生対応の材料/加工品も取り扱い実績があります。"
+ ],
+ flow:["図面受領","見積(工法提案)","製作・進捗管理","検査","納入"]
+},
+partner: {
+ title:"金属加工の受託工場様へ（協力工場のご案内）",
+ items:[
+  "<b>お仕事をお出しできます:</b> 当社は全国約4,400社の完成品メーカーから加工品の引合を頂く商社です。御社の得意加工に合う案件をご紹介できます。",
+  "<b>営業部隊の代わりに:</b> HPや営業マンがいなくても大丈夫。御社の設備・得意分野を登録頂ければ、当社が案件をマッチングします。",
+  "<b>材料支給・調達支援:</b> 特殊鋼など材料の調達は当社のスケールメリットをご利用ください。仕入コストを下げられる場合があります。",
+  "<b>与信の心配なし:</b> 発注元は当社（無借金経営・創業100年超）。新規取引先の与信リスクを負わずに仕事量を増やせます。",
+  "<b>まずは工場見学から:</b> 御社の設備と得意技を見せてください。それが最初の営業資料になります。"
+ ],
+ flow:["工場見学","得意加工の登録","案件紹介","試作受注","継続取引"]
+}
+};
+let pitchKey = "auto";
+function renderPitch(){
+  const p = PITCH[pitchKey];
+  $("#pitchBody").innerHTML =
+    `<h3>${p.title}</h3><ul>${p.items.map(i=>`<li>${i}</li>`).join("")}</ul>
+     <div class="flow">${p.flow.map((s,i)=>
+       `<span class="step">${esc(s)}</span>${i<p.flow.length-1?'<span class="arrow">→</span>':""}`).join("")}</div>
+     <p class="note">※数値・実績は自社公開情報ベース。最新の会社案内と併せてご提示ください。</p>`;
+}
+$("#pitchChips").addEventListener("click", e=>{
+  const c = e.target.closest(".chip"); if(!c) return;
+  pitchKey = c.dataset.p;
+  document.querySelectorAll("#pitchChips .chip").forEach(x=>x.classList.toggle("on", x===c));
+  renderPitch();
+});
+
+/* =========================================================
+   タブ6: 設定
+========================================================= */
+$("#setGasBtn").addEventListener("click", ()=>{
+  state.gasUrl = $("#setGas").value.trim();
+  save();
+  $("#setMsg").textContent = "保存しました。";
+});
+$("#setMailBtn").addEventListener("click", ()=>{
+  state.notifyEmail = $("#setMail").value.trim();
+  save();
+  alert("送信先メールアドレスを保存しました。");
+});
+$("#setTestBtn").addEventListener("click", async ()=>{
+  $("#setMsg").textContent = "接続テスト中…";
+  try{
+    state.gasUrl = $("#setGas").value.trim(); save();
+    const data = await callGAS({ action:"ping" });
+    $("#setMsg").textContent = "✅ 接続OK: " + (data.message || "GAS応答あり");
+  }catch(err){
+    $("#setMsg").textContent = "❌ " + err.message;
+  }
+});
+$("#expBtn").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `hiroshima_kaitaku_${today()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+function csvCell(v){
+  if(v===undefined || v===null) v="";
+  const s = String(v).replace(/\r?\n/g, " / ");
+  return '"' + s.replace(/"/g,'""') + '"';
+}
+$("#csvBtn").addEventListener("click", ()=>{
+  const cols = [
+    ["id","ID"],["name","社名"],["area","エリア"],["addr","住所"],["phone","電話番号"],
+    ["companyUrl","会社URL"],["corporateNumber","法人番号"],["representative","代表者"],
+    ["capital","資本金(参考値)"],["employees","従業員数"],["founded","設立"],
+    ["businessSummary","事業概要(gBiz)"],["businessItems","業種(gBiz)"],["biz","事業内容メモ"],
+    ["role","位置づけ"],["status","状況"],["existingClient","既取引先"],["excludeVisit","訪問対象外"],
+    ["gbizInfoStatus","gBiz照会結果"],["listedStatus","上場推定"],
+    ["financeSales","売上高(参考)"],["financeFiscalYear","決算期(参考)"],["financeNetIncome","純利益(参考)"],
+    ["tags","加工タグ"],["memo","メモ"],["webInfoText","Web検索結果"],["webInfoAt","Web検索日"],
+    ["lat","緯度"],["lng","経度"]
+  ];
+  const rows = state.companies.map(co=>{
+    const rec = {
+      ...co,
+      area: AREAS[co.area]||co.area||"",
+      role: ROLES[co.role]||"",
+      status: STATUS[co.status]||"",
+      existingClient: co.existingClient ? "はい" : "",
+      excludeVisit: co.excludeVisit ? "はい" : "",
+      tags: (co.tags||[]).join(";"),
+      financeSales: co.finance ? co.finance.sales : "",
+      financeFiscalYear: co.finance ? co.finance.fiscalYear : "",
+      financeNetIncome: co.finance ? co.finance.netIncome : ""
+    };
+    return cols.map(([key])=>csvCell(rec[key])).join(",");
+  });
+  const csv = "\uFEFF" + cols.map(([,label])=>csvCell(label)).join(",") + "\n" + rows.join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `hiroshima_kaitaku_companies_${today()}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+$("#impBtn").addEventListener("click", ()=>$("#impFile").click());
+$("#impFile").addEventListener("change", e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    try{
+      const d = JSON.parse(rd.result);
+      if(!d.companies || !d.logs) throw new Error("形式が違います");
+      state = d; save(); refreshAll();
+      alert("インポートしました");
+    }catch(err){ alert("読み込み失敗: " + err.message); }
+  };
+  rd.readAsText(f);
+  e.target.value = "";
+});
+$("#resetBtn").addEventListener("click", ()=>{
+  if(confirm("本当に全データを初期状態に戻しますか？訪問ログも消えます。")){
+    state = freshState(); save(); refreshAll();
+  }
+});
+
+/* ===== 初期化 ===== */
+function refreshAll(){
+  fillAreaSelects();
+  fillCoSelects();
+  renderTagChips();
+  renderList();
+  renderLogs();
+  renderPitch();
+  renderMarkers();
+  $("#setGas").value = state.gasUrl || "";
+  $("#setMail").value = state.notifyEmail || "";
+  $("#lgDate").value = today();
+  updateMailModeUI();
+}
+load();
+initMap();
+refreshAll();
+</script>
+<script id="setouchi-addon-js">
+"use strict";
+/* =========================================================
+   ▼ せとうちドライブ拡張アドオン v2（追記ブロック）
+   1) 登録日(addedAt)のマイグレーション
+   2) 周辺施設リンク → 訪問先企業を出発地に含む車ルートへ差し替え
+   3) AI相性判定（💗ボタン）
+   4) 比較グラフタブ（複数フィルタ・横棒・社名クリックでジャンプ）
+   5) 全項目CSV（抽出条件・ダウンロード・メール添付送信）
+========================================================= */
+
+/* ========== 1) 登録日マイグレーション（既存データは空欄=未記録） ========== */
+(function(){
+  let touched = false;
+  state.companies.forEach(c=>{ if(c.addedAt===undefined){ c.addedAt=""; touched=true; } });
+  if(touched) save();
+})();
+
+/* ========== 1-b) 初期データの実地調査結果を既存の保存データにも反映 ==========
+   旧版の概略サンプル座標のまま保存されている企業を、確認済みの住所・座標へ更新する。
+   ユーザーが自分で編集した値やメモ・訪問記録は上書きしない。 */
+(function migrateVerifiedSeed(){
+  const MIG_KEY = "seedVerified2026_07";
+  if(state[MIG_KEY]) return;
+  let n = 0;
+  SEED.forEach(sd=>{
+    // 旧社名（改称前）でも拾えるように前方一致でも探す
+    const co = state.companies.find(c=> c.name===sd.name)
+      || state.companies.find(c=> sd.name.startsWith(c.name) && c.name.length>=3);
+    if(!co) return;
+    // ユーザーが手で直した形跡がない項目だけ更新する
+    if(!co.userEdited){
+      co.name = sd.name; co.addr = sd.addr; co.city = sd.city; co.area = sd.area;
+      co.lat = sd.lat; co.lng = sd.lng; co.verified = sd.verified;
+      if(!co.phone) co.phone = sd.phone || "";
+      if(!co.companyUrl) co.companyUrl = sd.companyUrl || "";
+      if(!co.biz || co.biz.length < 6) co.biz = sd.biz;
+      // 旧版が入れていた「※地図位置は市町中心の概略」メモはもう正しくないので消す
+      if(co.memo === "※地図位置は市町中心の概略") co.memo = "";
+      n++;
+    }
+  });
+  // 実在しない「エリア枠」ダミーは訪問記録が無ければ削除
+  const dummy = state.companies.find(c=>/造船協力工場群/.test(c.name));
+  if(dummy && !state.logs.some(l=>l.companyId===dummy.id)){
+    state.companies = state.companies.filter(c=>c.id!==dummy.id);
+  }
+  state[MIG_KEY] = true;
+  save();
+  if(n) console.info("初期データを確認済み情報に更新しました: " + n + "件");
+})();
+
+/* ========== 1-c) 地図位置の出所表示 ========== */
+const VERIFIED_LABEL = {
+  official: ["地図位置=公式サイト掲載値", "var(--ok)"],
+  navitime: ["地図位置=地図事業者の掲載値", "var(--info)"],
+  addr:     ["地図位置=住所から概算（数十〜数百mずれる場合あり）", "var(--steel-300)"]
+};
+function verifiedHTML(co){
+  if(!co.verified) return "";
+  const v = VERIFIED_LABEL[co.verified]; if(!v) return "";
+  return `<div class="fin-note">📍 ${esc(v[0])}　<span style="color:${v[1]}">●</span>
+    <span style="color:var(--steel-300)">住所・電話は2026年7月に公式サイト等で確認済み</span></div>`;
+}
+/* 手編集された企業は以後の自動更新の対象外にする */
+$("#coList").addEventListener("input", e=>{
+  const act = e.target.dataset.act;
+  if(!act) return;
+  const card = e.target.closest(".card"); if(!card) return;
+  const co = state.companies.find(c=>c.id==card.dataset.id); if(!co) return;
+  if(["capital","employees","founded","representative","phone","companyUrl"].includes(act)){
+    co.userEdited = true; save();
+  }
+});
+
+/* ========== 2) 周辺施設リンクの差し替え ==========
+   企業（origin）→ 周辺施設カテゴリ（destination）の車ルートとして開く。
+   ※Googleマップの共有URLではピン色の指定は不可（出発地ピンとして企業が必ず表示される） */
+nearbyUrl = function(co, keyword){
+  const base = co.addr || co.city || "広島県";
+  const origin = encodeURIComponent(co.name + " " + base);
+  const dest = encodeURIComponent(keyword + " " + base);
+  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
+};
+
+/* ========== 3) AI相性判定 ========== */
+function aiMatchPrompt(co){
+  const info = [
+    "社名: " + co.name,
+    "所在地: " + (co.addr||co.city||"広島県"),
+    "事業内容: " + (co.biz||co.businessSummary||"不明（金属加工関連）"),
+    co.businessItems ? "業種(gBiz): " + co.businessItems : "",
+    (typeof co.capital==="number") ? "資本金(参考値): " + co.capital : "",
+    (typeof co.employees==="number") ? "従業員数: " + co.employees : "",
+    (co.tags && co.tags.length) ? "加工タグ: " + co.tags.join(",") : "",
+    "当社での位置づけ: " + (ROLES[co.role]||"未設定"),
+    "現在の関係: " + STATUS[co.status],
+    co.memo ? "営業メモ: " + co.memo : "",
+    co.webInfoText ? "Web調査メモ(抜粋): " + String(co.webInfoText).slice(0,400) : ""
+  ].filter(Boolean).join("\n");
+  return `あなたは金属加工品専門商社の営業支援AIです。\n${COMPANY_STRENGTHS}\n\n【判定対象企業】\n${info}\n\n`
+    + `この企業と当社の取引相性（販売先として・協力工場として、両面から総合的に）を判定してください。\n`
+    + `必ず次の形式のJSONだけを出力してください（前置き・説明・コードブロック記号は一切不要）。\n`
+    + `{"score": 0から100の整数, "verdict": "◎ 相性抜群"か"○ 有望"か"△ 要検討"か"✕ 優先度低"のいずれか, "reasons": ["理由1","理由2","理由3"], "approach": "最初のアプローチ一言(50字以内)"}`;
+}
+function parseAiMatch(text){
+  const t = String(text||"").replace(/```json|```/g,"").trim();
+  const s = t.indexOf("{"), e = t.lastIndexOf("}");
+  if(s>=0 && e>s){
+    try{
+      const j = JSON.parse(t.slice(s, e+1));
+      return {
+        score: (typeof j.score==="number") ? Math.max(0, Math.min(100, Math.round(j.score))) : null,
+        verdict: j.verdict || "",
+        reasons: Array.isArray(j.reasons) ? j.reasons.slice(0,5) : [],
+        approach: j.approach || "",
+        raw: ""
+      };
+    }catch(err){ /* JSON崩れは下のフォールバックへ */ }
+  }
+  return { score:null, verdict:"", reasons:[], approach:"", raw:t };
+}
+function aiMatchHTML(co){
+  const m = co.aiMatch;
+  if(!m) return "";
+  const col = (m.score==null) ? "var(--steel-300)"
+    : m.score>=75 ? "var(--ok)"
+    : m.score>=50 ? "var(--brass)"
+    : "var(--danger)";
+  const body = m.raw
+    ? esc(m.raw)
+    : (m.reasons||[]).map(r=>"・"+esc(r)).join("\n")
+      + (m.approach ? "\n▶ 最初の一手: " + esc(m.approach) : "");
+  return `<details class="webinfo-box aimatch-box">
+    <summary>💗 AI相性: <b style="color:${col}">${m.score!=null ? m.score+"点" : "判定あり"}</b> ${esc(m.verdict||"")} <span style="color:var(--steel-300)">（${esc(m.at||"")} 判定）</span></summary>
+    <div class="webinfo-body">${body}</div>
+  </details>`;
+}
+$("#coList").addEventListener("click", async e=>{
+  const btn = e.target.closest('[data-act="aimatch"]'); if(!btn) return;
+  const card = btn.closest(".card"); if(!card) return;
+  const co = state.companies.find(c=>c.id==card.dataset.id); if(!co) return;
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = "判定中…(10〜20秒)";
+  try{
+    const data = await callGAS({ action:"claude", prompt: aiMatchPrompt(co) }, 40000);
+    co.aiMatch = Object.assign(parseAiMatch(data.text||""), { at: today() });
+    save(); renderList();
+  }catch(err){
+    alert("AI相性判定に失敗しました: " + err.message);
+    btn.disabled = false; btn.textContent = orig;
+  }
+});
+
+/* ========== 4) 比較グラフ ========== */
+const CH_METRICS = {
+  capital:   { label:"資本金(参考値)", get:co=> (typeof co.capital==="number") ? co.capital : null, fmt:v=>v.toLocaleString("ja-JP") },
+  employees: { label:"従業員数", get:co=> (typeof co.employees==="number") ? co.employees : null, fmt:v=>v.toLocaleString("ja-JP")+"人" },
+  sales:     { label:"売上高(参考)", get:co=> (co.finance && co.finance.sales!=null) ? Number(co.finance.sales) : null, fmt:v=>v.toLocaleString("ja-JP") },
+  dist:      { label:"拠点からの距離", get:co=>{ const n = nearestBase(co); return n ? +n.d.toFixed(1) : null; }, fmt:v=>v+" km" },
+  visits:    { label:"訪問回数", get:co=>{ const n = state.logs.filter(l=>l.companyId===co.id).length; return n>0 ? n : null; }, fmt:v=>v+"回" },
+  aiscore:   { label:"AI相性スコア", get:co=> (co.aiMatch && co.aiMatch.score!=null) ? co.aiMatch.score : null, fmt:v=>v+"点" }
+};
+const CH_METRIC_HINT = {
+  sales:"※売上高は有価証券報告書提出企業（上場・大企業）のみ収録のため、対象が少なくなるのが正常です。",
+  visits:"※訪問記録が1件以上ある企業のみ表示します。",
+  aiscore:"※各企業カードの「💗 AI相性判定」を実行した企業のみ表示します。"
+};
+const chSel = { area:new Set(), status:new Set(), role:new Set(), tags:new Set() };
+function chChipRow(sel, items, set){
+  $(sel).innerHTML = `<button class="chip ${set.size===0?"on":""}" data-k="__all">すべて</button>` +
+    items.map(([k,v])=>`<button class="chip ${set.has(String(k))?"on":""}" data-k="${esc(String(k))}">${esc(v)}</button>`).join("");
+}
+function buildChartFilters(){
+  chChipRow("#chAreaChips", Object.entries(AREAS), chSel.area);
+  chChipRow("#chStatusChips", Object.entries(STATUS), chSel.status);
+  chChipRow("#chRoleChips", [["","位置づけ未設定"], ...Object.entries(ROLES)], chSel.role);
+  chChipRow("#chTagChips", allTags().map(t=>[t,t]), chSel.tags);
+}
+[["#chAreaChips","area"],["#chStatusChips","status"],["#chRoleChips","role"],["#chTagChips","tags"]].forEach(([sel,key])=>{
+  $(sel).addEventListener("click", e=>{
+    const c = e.target.closest(".chip"); if(!c) return;
+    const k = c.dataset.k;
+    if(k==="__all") chSel[key].clear();
+    else chSel[key].has(k) ? chSel[key].delete(k) : chSel[key].add(k);
+    buildChartFilters(); renderChart();
+  });
+});
+function chartFilteredCompanies(){
+  const kw = $("#chKw").value.trim();
+  const capMin = parseFloat($("#chCapMin").value); const hasCapMin = !isNaN(capMin);
+  const empMin = parseFloat($("#chEmpMin").value); const hasEmpMin = !isNaN(empMin);
+  const existing = $("#chExisting").value;
+  return state.companies.filter(co=>
+    (chSel.area.size===0 || chSel.area.has(co.area)) &&
+    (chSel.status.size===0 || chSel.status.has(co.status)) &&
+    (chSel.role.size===0 || chSel.role.has(co.role||"")) &&
+    (chSel.tags.size===0 || Array.from(chSel.tags).every(t=>(co.tags||[]).includes(t))) &&
+    (!existing || (existing==="yes" ? !!co.existingClient : !co.existingClient)) &&
+    ($("#chShowExcluded").checked || !co.excludeVisit) &&
+    (!hasCapMin || (typeof co.capital==="number" && co.capital>=capMin)) &&
+    (!hasEmpMin || (typeof co.employees==="number" && co.employees>=empMin)) &&
+    (!kw || [co.name, co.biz, co.businessSummary].filter(Boolean).join(" ").includes(kw))
+  );
+}
+function renderChart(){
+  const mkey = $("#chMetric").value; const m = CH_METRICS[mkey];
+  const order = $("#chOrder").value;
+  const limit = +$("#chLimit").value || Infinity;
+  const filtered = chartFilteredCompanies();
+  let rows = filtered.map(co=>({ co, v: m.get(co) })).filter(r=>r.v!=null);
+  rows.sort((a,b)=> order==="asc" ? a.v-b.v : b.v-a.v);
+  const total = rows.length, skipped = filtered.length - total;
+  rows = rows.slice(0, limit);
+  const max = rows.length ? Math.max(...rows.map(r=>r.v)) : 1;
+  const hint = CH_METRIC_HINT[mkey] || (skipped>0 ? "※指標の値が未取得の企業はグラフから除外されます。" : "");
+  $("#chartWrap").innerHTML = rows.length
+    ? `<p class="note">${esc(m.label)} ─ 絞り込み${filtered.length}社中、値あり${total}社（表示${rows.length}社）${skipped>0?` ／ 値なし${skipped}社は除外`:""}<br>${esc(hint)}</p>`
+      + rows.map(r=>`<div class="ch-row">
+          <button class="ch-name" data-jump="${r.co.id}" title="${esc(r.co.name)} のカードへジャンプ">${esc(r.co.name)}</button>
+          <div class="ch-barwrap"><div class="ch-bar" style="width:${Math.max(1.5, (max>0 ? r.v/max*100 : 0))}%"></div><span class="ch-val">${m.fmt(r.v)}</span></div>
+        </div>`).join("")
+    : `<p class="note">該当する企業がないか、「${esc(m.label)}」の値を持つ企業がありません。${esc(hint)}</p>`;
+}
+["chExisting","chMetric","chOrder","chLimit"].forEach(id=>{
+  $("#"+id).addEventListener("change", renderChart);
+});
+["chKw","chCapMin","chEmpMin"].forEach(id=>{
+  $("#"+id).addEventListener("input", renderChart);
+});
+$("#chShowExcluded").addEventListener("change", renderChart);
+$("#chClearBtn").addEventListener("click", ()=>{
+  chSel.area.clear(); chSel.status.clear(); chSel.role.clear(); chSel.tags.clear();
+  $("#chExisting").value=""; $("#chKw").value=""; $("#chCapMin").value=""; $("#chEmpMin").value="";
+  $("#chShowExcluded").checked = false;
+  buildChartFilters(); renderChart();
+});
+$("#chartWrap").addEventListener("click", e=>{
+  const b = e.target.closest("[data-jump]"); if(!b) return;
+  jumpToCompany(+b.dataset.jump);
+});
+function jumpToCompany(id){
+  /* リストの絞り込みを解除して該当カードを必ず表示できる状態にしてからジャンプ */
+  $("#fltArea").value=""; $("#fltStatus").value=""; $("#fltRole").value=""; $("#fltExisting").value="";
+  $("#fltCapMin").value=""; $("#fltEmpMin").value="";
+  activeTagFilters.clear(); $("#fltShowExcluded").checked = true;
+  renderTagChips(); renderList();
+  document.querySelector('nav button[data-tab="list"]').click();
+  setTimeout(()=>{
+    const el = document.querySelector(`#coList .card[data-id="${id}"]`);
+    if(!el) return;
+    el.scrollIntoView({ behavior:"smooth", block:"start" });
+    el.classList.add("flash");
+    setTimeout(()=>el.classList.remove("flash"), 1700);
+  }, 150);
+}
+/* グラフタブを開いたときにタグ等の最新状態でフィルタを再構築 */
+document.getElementById("nav").addEventListener("click", e=>{
+  const btn = e.target.closest('button[data-tab="chart"]'); if(!btn) return;
+  buildChartFilters(); renderChart();
+});
+
+/* ========== 5) 全項目CSV（抽出条件・ダウンロード・メール送信） ========== */
+function coLogsAsc(co){
+  return state.logs.filter(l=>l.companyId===co.id).slice().sort((a,b)=>a.date.localeCompare(b.date));
+}
+function csvXReadFilters(){
+  return {
+    type: $("#csvXType").value,
+    area: $("#csvXArea").value, status: $("#csvXStatus").value, role: $("#csvXRole").value,
+    existing: $("#csvXExisting").value, temp: $("#csvXTemp").value,
+    regFrom: $("#csvXRegFrom").value, regTo: $("#csvXRegTo").value,
+    visFrom: $("#csvXVisFrom").value, visTo: $("#csvXVisTo").value,
+    kw: $("#csvXKw").value.trim(),
+    includeExcluded: $("#csvXExcluded").checked
+  };
+}
+function csvXCompanyPasses(co, f){
+  if(f.area && co.area!==f.area) return false;
+  if(f.status && co.status!==f.status) return false;
+  if(f.role && (co.role||"")!==f.role) return false;
+  if(f.existing==="yes" && !co.existingClient) return false;
+  if(f.existing==="no" && co.existingClient) return false;
+  if(!f.includeExcluded && co.excludeVisit) return false;
+  if(f.regFrom && (!co.addedAt || co.addedAt < f.regFrom)) return false;
+  if(f.regTo && (!co.addedAt || co.addedAt > f.regTo)) return false;
+  const logs = coLogsAsc(co);
+  if(f.temp){
+    const latest = logs[logs.length-1];
+    if(!latest || latest.temp!==f.temp) return false;
+  }
+  if(f.visFrom || f.visTo){
+    const hit = logs.some(l=> (!f.visFrom || l.date>=f.visFrom) && (!f.visTo || l.date<=f.visTo));
+    if(!hit) return false;
+  }
+  if(f.kw){
+    const hay = [co.name, co.biz, co.businessSummary, co.businessItems, co.memo, co.addr].filter(Boolean).join(" ");
+    if(!hay.includes(f.kw)) return false;
+  }
+  return true;
+}
+function csvXMapUrl(co){
+  return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(co.name + " " + (co.addr||co.city||"広島県"));
+}
+function csvXRouteUrl(co){
+  return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(co.name + " " + (co.addr||""));
+}
+const CSVX_COMPANY_COLS = [
+  ["id","ID"],["name","社名"],["area","エリア"],["addr","住所"],["phone","電話番号"],
+  ["companyUrl","会社URL"],["corporateNumber","法人番号"],["representative","代表者"],
+  ["capital","資本金(参考値)"],["employees","従業員数"],["founded","設立"],
+  ["businessSummary","事業概要(gBiz)"],["businessItems","業種(gBiz)"],["biz","事業内容メモ"],
+  ["role","位置づけ"],["status","状況"],["existingClient","既取引先"],["excludeVisit","訪問対象外"],
+  ["gbizInfoStatus","gBiz照会結果"],["listedStatus","上場推定"],
+  ["financeSales","売上高(参考)"],["financeFiscalYear","決算期(参考)"],["financeNetIncome","純利益(参考)"],
+  ["tags","加工タグ"],["memo","メモ"],["webInfoText","Web検索結果"],["webInfoAt","Web検索日"],
+  ["addedAt","登録日"],
+  ["baseName","最寄自社拠点"],["baseDist","拠点からの距離km"],
+  ["visitCount","訪問回数"],["firstVisit","初回訪問日"],["lastVisit","最終訪問日"],
+  ["latestTemp","最新温度感"],["latestPerson","最新面談相手"],
+  ["nextAction","次アクション"],["nextDue","次アクション期限"],["visitHistory","訪問履歴全文"],
+  ["aiScore","AI相性スコア"],["aiVerdict","AI相性判定"],["aiComment","AI相性コメント"],["aiAt","AI相性判定日"],
+  ["mapUrl","地図URL"],["routeUrl","ルートURL(自分→企業)"],
+  ["nearbyParking","周辺:駐車場ルート"],["nearbyGs","周辺:ガソリンスタンドルート"],["nearbyConv","周辺:コンビニルート"],
+  ["nearbySuper","周辺:スーパールート"],["nearbyRest","周辺:レストランルート"],["nearbyGift","周辺:お土産ルート"],
+  ["lat","緯度"],["lng","経度"]
+];
+function buildCompanyCsv(f){
+  const list = state.companies.filter(co=>csvXCompanyPasses(co, f))
+    .slice().sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+  const rows = list.map(co=>{
+    const logs = coLogsAsc(co);
+    const latest = logs[logs.length-1];
+    const nb = nearestBase(co);
+    const nearby = {};
+    NEARBY_CATEGORIES.forEach(([,label])=>{ nearby[label] = nearbyUrl(co, label); });
+    const m = co.aiMatch;
+    const rec = {
+      id: co.id, name: co.name, area: AREAS[co.area]||co.area||"", addr: co.addr||"", phone: co.phone||"",
+      companyUrl: co.companyUrl||"", corporateNumber: co.corporateNumber||"", representative: co.representative||"",
+      capital: co.capital, employees: co.employees, founded: co.founded||"",
+      businessSummary: co.businessSummary||"", businessItems: co.businessItems||"", biz: co.biz||"",
+      role: ROLES[co.role]||"", status: STATUS[co.status]||"",
+      existingClient: co.existingClient ? "はい" : "", excludeVisit: co.excludeVisit ? "はい" : "",
+      gbizInfoStatus: co.gbizInfoStatus||"", listedStatus: co.listedStatus||"",
+      financeSales: co.finance ? co.finance.sales : "", financeFiscalYear: co.finance ? co.finance.fiscalYear : "",
+      financeNetIncome: co.finance ? co.finance.netIncome : "",
+      tags: (co.tags||[]).join(";"), memo: co.memo||"",
+      webInfoText: co.webInfoText||"", webInfoAt: co.webInfoAt||"",
+      addedAt: co.addedAt||"",
+      baseName: nb ? nb.name : "", baseDist: nb ? nb.d.toFixed(1) : "",
+      visitCount: logs.length,
+      firstVisit: logs.length ? logs[0].date : "", lastVisit: latest ? latest.date : "",
+      latestTemp: latest ? latest.temp : "", latestPerson: latest ? (latest.person||"") : "",
+      nextAction: latest ? (latest.next||"") : "", nextDue: latest ? (latest.due||"") : "",
+      visitHistory: logs.map(l=>`[${l.date}] ${l.person||""} 温度${l.temp}: ${l.memo||""}${l.next?` → 次:${l.next}${l.due?`(期限${l.due})`:""}`:""}`).join(" ｜ "),
+      aiScore: (m && m.score!=null) ? m.score : "",
+      aiVerdict: m ? (m.verdict||"") : "",
+      aiComment: m ? ((m.reasons||[]).join("／") + (m.approach ? " ▶最初の一手:"+m.approach : "") + (m.raw||"")) : "",
+      aiAt: m ? (m.at||"") : "",
+      mapUrl: csvXMapUrl(co), routeUrl: csvXRouteUrl(co),
+      nearbyParking: nearby["駐車場"], nearbyGs: nearby["ガソリンスタンド"], nearbyConv: nearby["コンビニ"],
+      nearbySuper: nearby["スーパー"], nearbyRest: nearby["レストラン"], nearbyGift: nearby["お土産"],
+      lat: co.lat, lng: co.lng
+    };
+    return CSVX_COMPANY_COLS.map(([key])=>csvCell(rec[key])).join(",");
+  });
+  return {
+    csv: "\uFEFF" + CSVX_COMPANY_COLS.map(([,l])=>csvCell(l)).join(",") + "\n" + rows.join("\n"),
+    count: list.length
+  };
+}
+const CSVX_LOG_COLS = [
+  ["date","訪問日"],["name","社名"],["area","エリア"],["addr","住所"],["person","面談相手"],
+  ["temp","温度感"],["memo","面談メモ"],["next","次アクション"],["due","期限"],
+  ["status","現在の状況"],["role","位置づけ"],["phone","電話番号"],["addedAt","企業登録日"],["coMemo","企業メモ"]
+];
+function buildLogCsv(f){
+  const rows = [];
+  state.companies.filter(co=>csvXCompanyPasses(co, f)).forEach(co=>{
+    coLogsAsc(co).forEach(l=>{
+      if(f.visFrom && l.date < f.visFrom) return;
+      if(f.visTo && l.date > f.visTo) return;
+      if(f.temp && l.temp!==f.temp) return;
+      rows.push({
+        date:l.date, name:co.name, area:AREAS[co.area]||"", addr:co.addr||"", person:l.person||"",
+        temp:l.temp, memo:l.memo||"", next:l.next||"", due:l.due||"",
+        status:STATUS[co.status]||"", role:ROLES[co.role]||"", phone:co.phone||"",
+        addedAt:co.addedAt||"", coMemo:co.memo||""
+      });
+    });
+  });
+  rows.sort((a,b)=>a.date.localeCompare(b.date));
+  return {
+    csv: "\uFEFF" + CSVX_LOG_COLS.map(([,l])=>csvCell(l)).join(",") + "\n"
+      + rows.map(r=>CSVX_LOG_COLS.map(([k])=>csvCell(r[k])).join(",")).join("\n"),
+    count: rows.length
+  };
+}
+function csvXBuild(){
+  const f = csvXReadFilters();
+  const r = (f.type==="logs") ? buildLogCsv(f) : buildCompanyCsv(f);
+  r.type = f.type;
+  return r;
+}
+function toBase64Utf8(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = ""; const chunk = 0x8000;
+  for(let i=0; i<bytes.length; i+=chunk){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+  }
+  return btoa(bin);
+}
+$("#csvXDlBtn").addEventListener("click", ()=>{
+  const r = csvXBuild();
+  if(!r.count){ $("#csvXMsg").textContent = "⚠️ 条件に該当するデータがありません。"; return; }
+  const blob = new Blob([r.csv], { type:"text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (r.type==="logs" ? "kaitaku_visits_" : "kaitaku_companies_") + today() + ".csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  $("#csvXMsg").textContent = `✅ ${r.count}件をCSVでダウンロードしました。`;
+});
+$("#csvXMailBtn").addEventListener("click", async ()=>{
+  const to = ($("#csvXTo").value.trim() || state.notifyEmail || "").trim();
+  if(!to){ $("#csvXMsg").textContent = "⚠️ 送信先が未設定です。上の欄に入力するか、設定のメールアドレスを保存してください。"; return; }
+  const r = csvXBuild();
+  if(!r.count){ $("#csvXMsg").textContent = "⚠️ 条件に該当するデータがありません。"; return; }
+  const typeName = r.type==="logs" ? "訪問履歴明細" : "企業一覧";
+  const filename = (r.type==="logs" ? "kaitaku_visits_" : "kaitaku_companies_") + today() + ".csv";
+  const btn = $("#csvXMailBtn"); btn.disabled = true; const orig = btn.textContent; btn.textContent = "送信中…";
+  $("#csvXMsg").textContent = "";
+  try{
+    await callGAS({
+      action: "sendMailCsv",
+      to,
+      subject: `【せとうちドライブ開拓ノート】CSV出力（${typeName}・${r.count}件）${today()}`,
+      body: `開拓ノートからCSVを送付します。\n\n形式: ${typeName}\n件数: ${r.count}件\n出力日: ${today()}\n\n添付のCSVはBOM付きUTF-8のため、Excelでそのまま開けます。`,
+      filename,
+      csvBase64: toBase64Utf8(r.csv)
+    }, 40000);
+    $("#csvXMsg").textContent = `✅ ${to} 宛にCSV（${typeName}・${r.count}件）を送信しました。`;
+  }catch(err){
+    $("#csvXMsg").textContent = "❌ " + err.message
+      + (/不明なaction/.test(err.message) ? "（GASプロキシを最新版=sendMailCsv対応版に貼り替えて再デプロイしてください）" : "");
+  }finally{
+    btn.disabled = false; btn.textContent = orig;
+  }
+});
+
+/* ========== アドオン初期化 ========== */
+(function initAddon(){
+  $("#csvXArea").innerHTML = `<option value="">エリア: すべて</option>`
+    + Object.entries(AREAS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
+  $("#csvXExcluded").checked = true;   /* CSVは既定で全件（対象外含む）を出力 */
+  buildChartFilters();
+  renderList();   /* 相性表示・💗ボタン・企業発ルートリンクを反映して再描画 */
+})();
+</script>
+<script id="support-addon-js">
+"use strict";
+/* =========================================================
+   ▼ 広島営業開拓サポート 拡張アドオン v3（追記ブロック）
+   1) タブ固定（ヘッダー実高さを測って nav の top を合わせる）
+   2) 使い方アシスト（❓ボタンで各UIの意味を表示）
+   3) 「企業を見つけてリストに追加」→ 追加エリアへスクロール
+   4) リスト表示タブ（CSV出力プレビュー・フィルタ連動）
+========================================================= */
+
+/* ========== 1) タブ固定：ヘッダー高さを実測して --hd-h に反映 ========== */
+function syncHeaderHeight(){
+  const hd = document.querySelector("header");
+  if(!hd) return;
+  const banner = document.getElementById("helpBanner");
+  const bh = (banner && getComputedStyle(banner).display !== "none") ? banner.offsetHeight : 0;
+  const h = hd.offsetHeight + bh;
+  /* 計測できない環境（レイアウト前など）で0にならないよう既定値を保つ */
+  if(h > 0) document.documentElement.style.setProperty("--hd-h", h + "px");
+}
+window.addEventListener("resize", syncHeaderHeight);
+window.addEventListener("orientationchange", syncHeaderHeight);
+syncHeaderHeight();
+setTimeout(syncHeaderHeight, 300);   /* Webフォント適用後の高さ変化に追従 */
+
+/* ========== 2) 使い方アシスト ========== */
+/* 既存UIに触れず、指定セレクタの直後に説明文を差し込む（アシストONの時だけ表示） */
+const HELP_ITEMS = [
+  /* --- マップ --- */
+  ["#mapAreaChips", "エリアを選ぶと、地図がそのエリアに拡大されます。<b>「全県」</b>で広島県全体に戻ります。"],
+  ["#bigmap", "ピンの色は状況を表します（<b>灰=未訪問／青=訪問済／水色=見込み／緑=取引中</b>、★=自社拠点）。ピンをタップすると社名と<b>ルートリンク</b>が出ます。"],
+  /* --- 企業リスト --- */
+  ["#fltArea", "<b>絞り込み条件</b>：エリア・状況・位置づけ・既存顧客で企業を絞ります。<b>並び順</b>では「拠点から近い順」にすると、今いる場所の近くを効率よく回れます。"],
+  ["#fltCapMin", "<b>資本金・従業員数の下限</b>：数字を入れると、その値<b>以上</b>の企業だけを表示します（例: 従業員50 → 50人以上）。空欄なら制限なし。<b>訪問対象外も表示</b>にチェックを入れると、対象外にした企業も一覧に戻ります。"],
+  ["#fltTagChips", "<b>加工タグ</b>：「詳細取得」や「AI加工分類」を実行すると自動で付きます。複数選ぶと<b>すべてに当てはまる</b>企業だけに絞られます。"],
+  ["#coList", "各カードの見方 ─ <b>📍地図</b>=カード内に地図を開く／<b>🚗ルート</b>=そこへの道順／<b>🖼️画像検索・👤代表者検索・📖Wikipedia</b>=下調べ用リンク／<b>🔍詳細取得(gBiz)</b>=公的データで資本金や代表者を自動入力／<b>🏷️AI加工分類</b>=事業内容から加工タグを推定／<b>🌐Web検索</b>=電話番号や沿革をAIが調査／<b>💗AI相性判定</b>=自社との相性を点数化。<br><b>既取引先</b>＝すでに取引がある先の目印。<b>訪問対象外</b>＝今は狙わない先（一覧と地図から隠れます）。"],
+  ["#bulkTarget", "<b>新しく追加する件数</b>：ここに入れた数だけ<b>新たに追加</b>します（例: 10なら10社増えます）。すでに登録済みの企業は自動でスキップされます。"],
+  ["#gbKw", "<b>キーワード検索</b>：「鉄工」「製作所」など社名の一部でgBizINFO（国の公開データベース）を検索し、1社ずつ選んで追加できます。"],
+  ["#addName", "<b>手入力で追加</b>：gBizINFOに無い会社や、看板を見て見つけた会社をその場で登録できます。社名だけでも追加OK。住所を入れると地図にピンが立ちます。"],
+  /* --- AI準備 --- */
+  ["#aiCo", "訪問先を選んで<b>ブリーフィング生成</b>を押すと、想定される課題・トーク・断り文句への切り返しをAIが作ります（車内で30秒読む用）。"],
+  ["#aiQ", "その場で疑問をAIに聞けます（例:「断られた後の再訪の口実は？」）。"],
+  /* --- 訪問録 --- */
+  ["#lgCo", "訪問したらすぐ記録。<b>温度感A</b>=具体案件あり／<b>B</b>=関心あり／<b>C</b>=当面なし。Aを選ぶと企業の状況が自動で「見込み」に変わります。"],
+  ["#lgNext", "<b>次アクションと期限</b>を入れておくと、下の一覧が<b>期限順</b>に並び、期限切れは赤く表示されます（訪問漏れ防止）。"],
+  ["#mailMode", "訪問履歴を上司へ送る機能です。<b>期間を指定</b>するか、各記録の<b>チェックボックス</b>で個別に選んで送れます。送信先は⚙️設定タブで登録します。"],
+  /* --- 武器 --- */
+  ["#pitchChips", "訪問先の業種に合うタブを選び、<b>スマホ画面をそのまま相手に見せる</b>ための自社紹介です。"],
+  /* --- グラフ --- */
+  ["#chAreaChips", "各条件は<b>複数選択できます</b>（何も選ばなければ「すべて」）。条件を組み合わせて対象を絞り込めます。"],
+  ["#chMetric", "<b>指標</b>=棒の長さが何を表すか。<b>昇順/降順</b>で並び替え、<b>上位◯社</b>で表示件数を変えられます。<b>左の社名をタップすると、企業リストの該当カードへジャンプ</b>します。"],
+  /* --- 設定 --- */
+  ["#setGas", "<b>GAS URL</b>：gBizINFO検索やAI機能に必要な中継先です。「接続テスト」で✅が出ればOK。"],
+  ["#setMail", "訪問履歴やCSVの<b>送信先メールアドレス</b>です。"],
+  ["#expBtn", "<b>JSONエクスポート</b>：全データのバックアップ。データはこの端末のブラウザ内だけに保存されるため、<b>機種変更やキャッシュ削除で消えます</b>。定期的な書き出しをおすすめします。"],
+  ["#csvXType", "<b>全項目CSV</b>：会社情報・訪問履歴・登録日・AI相性・周辺施設リンクまで全部入りのExcel用ファイルです。下の条件で<b>出力する範囲を絞れます</b>（未入力なら全件）。"]
+];
+(function injectHints(){
+  HELP_ITEMS.forEach(([sel, text])=>{
+    const el = document.querySelector(sel);
+    if(!el) return;
+    const host = el.closest(".card, .row, .chips") || el;
+    const div = document.createElement("div");
+    div.className = "hint";
+    div.innerHTML = text;
+    host.parentNode.insertBefore(div, host.nextSibling);
+    host.classList.add("hint-target");
+  });
+})();
+$("#helpBtn").addEventListener("click", ()=>{
+  const on = document.body.classList.toggle("help-on");
+  $("#helpBtn").classList.toggle("on", on);
+  $("#helpBtn").setAttribute("aria-pressed", on ? "true" : "false");
+  $("#helpBtn").textContent = on ? "✖ アシストを閉じる" : "❓ 使い方アシスト";
+  syncHeaderHeight();
+});
+
+/* ========== 3) 「企業を見つけてリストに追加」→ 追加エリアへ ========== */
+$("#gotoAddBtn").addEventListener("click", ()=>{
+  const target = $("#addSection");
+  if(!target) return;
+  target.scrollIntoView({ behavior:"smooth", block:"start" });
+  target.classList.add("flash");
+  setTimeout(()=>target.classList.remove("flash"), 1700);
+  setTimeout(()=>{ const kw = $("#gbKw"); if(kw) kw.focus({ preventScroll:true }); }, 600);
+});
+
+/* ========== 4) リスト表示タブ（CSVプレビュー） ========== */
+/* 設定タブのCSV条件と同じ意味の条件をこのタブでも持ち、両者を同期する */
+const TB_IDS = [
+  ["#tbType","#csvXType"],["#tbArea","#csvXArea"],["#tbStatus","#csvXStatus"],["#tbRole","#csvXRole"],
+  ["#tbExisting","#csvXExisting"],["#tbTemp","#csvXTemp"],["#tbRegFrom","#csvXRegFrom"],["#tbRegTo","#csvXRegTo"],
+  ["#tbVisFrom","#csvXVisFrom"],["#tbVisTo","#csvXVisTo"],["#tbKw","#csvXKw"]
+];
+function tbReadFilters(){
+  return {
+    type: $("#tbType").value,
+    area: $("#tbArea").value, status: $("#tbStatus").value, role: $("#tbRole").value,
+    existing: $("#tbExisting").value, temp: $("#tbTemp").value,
+    regFrom: $("#tbRegFrom").value, regTo: $("#tbRegTo").value,
+    visFrom: $("#tbVisFrom").value, visTo: $("#tbVisTo").value,
+    kw: $("#tbKw").value.trim(),
+    includeExcluded: $("#tbExcluded").checked
+  };
+}
+/* 片方を変えたらもう片方へ反映（CSV出力＝プレビューの内容を保証する） */
+function syncTbToCsvX(){
+  TB_IDS.forEach(([a,b])=>{ const x=$(a), y=$(b); if(x&&y) y.value = x.value; });
+  $("#csvXExcluded").checked = $("#tbExcluded").checked;
+}
+function syncCsvXToTb(){
+  TB_IDS.forEach(([a,b])=>{ const x=$(a), y=$(b); if(x&&y) x.value = y.value; });
+  $("#tbExcluded").checked = $("#csvXExcluded").checked;
+}
+/* 企業一覧プレビューの表示列（CSVは全項目・画面は見やすい主要列） */
+const TB_COMPANY_COLS = [
+  ["name","社名"],["area","エリア"],["addr","住所"],["status","状況"],["role","位置づけ"],
+  ["tags","加工タグ"],["capital","資本金"],["employees","従業員"],["addedAt","登録日"],
+  ["visitCount","訪問回数"],["lastVisit","最終訪問"],["latestTemp","温度"],
+  ["nextAction","次アクション"],["nextDue","期限"],["aiScore","AI相性"],
+  ["phone","電話番号"],["representative","代表者"],["biz","事業内容"],["memo","メモ"]
+];
+const TB_NUM_COLS = new Set(["capital","employees","visitCount","aiScore"]);
+function tbCompanyRows(f){
+  return state.companies.filter(co=>csvXCompanyPasses(co, f))
+    .slice().sort((a,b)=>a.name.localeCompare(b.name,"ja"))
+    .map(co=>{
+      const logs = coLogsAsc(co);
+      const latest = logs[logs.length-1];
+      const m = co.aiMatch;
+      return {
+        _id: co.id,
+        name: co.name, area: AREAS[co.area]||"", addr: co.addr||"",
+        status: STATUS[co.status]||"", role: ROLES[co.role]||"",
+        tags: (co.tags||[]).join("、"),
+        capital: (typeof co.capital==="number") ? co.capital.toLocaleString("ja-JP") : "",
+        employees: (typeof co.employees==="number") ? co.employees.toLocaleString("ja-JP") : "",
+        addedAt: co.addedAt||"", visitCount: logs.length || "",
+        lastVisit: latest ? latest.date : "", latestTemp: latest ? latest.temp : "",
+        nextAction: latest ? (latest.next||"") : "", nextDue: latest ? (latest.due||"") : "",
+        aiScore: (m && m.score!=null) ? m.score : "",
+        phone: co.phone||"", representative: co.representative||"",
+        biz: co.biz||co.businessSummary||"", memo: co.memo||""
+      };
+    });
+}
+function tbLogRows(f){
+  const rows = [];
+  state.companies.filter(co=>csvXCompanyPasses(co, f)).forEach(co=>{
+    coLogsAsc(co).forEach(l=>{
+      if(f.visFrom && l.date < f.visFrom) return;
+      if(f.visTo && l.date > f.visTo) return;
+      if(f.temp && l.temp!==f.temp) return;
+      rows.push({
+        _id: co.id,
+        date:l.date, name:co.name, area:AREAS[co.area]||"", addr:co.addr||"",
+        person:l.person||"", temp:l.temp, memo:l.memo||"", next:l.next||"", due:l.due||"",
+        status:STATUS[co.status]||"", role:ROLES[co.role]||"", phone:co.phone||"",
+        addedAt:co.addedAt||"", coMemo:co.memo||""
+      });
+    });
+  });
+  rows.sort((a,b)=>a.date.localeCompare(b.date));
+  return rows;
+}
+function renderTable(){
+  const f = tbReadFilters();
+  syncTbToCsvX();
+  const isLogs = f.type==="logs";
+  const cols = isLogs ? CSVX_LOG_COLS : TB_COMPANY_COLS;
+  const rows = isLogs ? tbLogRows(f) : tbCompanyRows(f);
+  const jumpKey = isLogs ? "date" : "name";
+  $("#tbCount").textContent = rows.length
+    ? `${isLogs?"訪問":"企業"} ${rows.length}件を表示中（この内容がそのままCSVになります）`
+    : "";
+  if(!rows.length){
+    $("#tbTable").innerHTML = "";
+    $("#tbCount").textContent = "該当するデータがありません。条件を緩めてみてください。";
+    return;
+  }
+  const head = `<thead><tr>${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}</tr></thead>`;
+  const body = `<tbody>${rows.map(r=>`<tr>${cols.map(([k])=>{
+    const v = r[k]===undefined||r[k]===null ? "" : String(r[k]);
+    if(k===jumpKey){
+      return `<td><button class="tb-jump" data-jump="${r._id}" title="企業リストの該当カードへ">${esc(v)}</button>`
+        + (isLogs ? "" : "") + `</td>`;
+    }
+    const cls = TB_NUM_COLS.has(k) ? ' class="num"' : "";
+    const long = v.length > 28;
+    return `<td${cls}>${long ? `<span class="cellclip" title="${esc(v)}">${esc(v)}</span>` : esc(v)}</td>`;
+  }).join("")}</tr>`).join("")}</tbody>`;
+  $("#tbTable").innerHTML = head + body;
+}
+$("#tbTable").addEventListener("click", e=>{
+  const b = e.target.closest("[data-jump]"); if(!b) return;
+  jumpToCompany(+b.dataset.jump);
+});
+["tbType","tbArea","tbStatus","tbRole","tbExisting","tbTemp","tbRegFrom","tbRegTo","tbVisFrom","tbVisTo"].forEach(id=>{
+  $("#"+id).addEventListener("change", renderTable);
+});
+$("#tbKw").addEventListener("input", renderTable);
+$("#tbExcluded").addEventListener("change", renderTable);
+$("#tbClearBtn").addEventListener("click", ()=>{
+  ["tbArea","tbStatus","tbRole","tbExisting","tbTemp","tbRegFrom","tbRegTo","tbVisFrom","tbVisTo","tbKw"]
+    .forEach(id=>{ $("#"+id).value=""; });
+  $("#tbType").value = "companies";
+  $("#tbExcluded").checked = true;
+  renderTable();
+});
+/* リストタブのCSVボタンは、設定タブの既存ボタンをそのまま実行（挙動を1本化） */
+$("#tbDlBtn").addEventListener("click", ()=>{
+  syncTbToCsvX();
+  $("#csvXDlBtn").click();
+  $("#tbMsg").textContent = $("#csvXMsg").textContent;
+});
+$("#tbMailBtn").addEventListener("click", async ()=>{
+  syncTbToCsvX();
+  const btn = $("#tbMailBtn"); btn.disabled = true; const orig = btn.textContent;
+  btn.textContent = "送信中…"; $("#tbMsg").textContent = "";
+  $("#csvXMailBtn").click();
+  /* 設定タブ側の結果メッセージをそのまま反映 */
+  const timer = setInterval(()=>{
+    if(!$("#csvXMailBtn").disabled){
+      clearInterval(timer);
+      $("#tbMsg").textContent = $("#csvXMsg").textContent;
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }, 200);
+});
+/* タブを開いたら最新状態で描画 */
+document.getElementById("nav").addEventListener("click", e=>{
+  const btn = e.target.closest('button[data-tab="table"]'); if(!btn) return;
+  syncCsvXToTb();
+  renderTable();
+});
+
+/* ========== 初期化 ========== */
+(function initSupportAddon(){
+  $("#tbArea").innerHTML = `<option value="">エリア: すべて</option>`
+    + Object.entries(AREAS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
+  $("#tbExcluded").checked = true;   /* 既定は全件（CSV既定と揃える） */
+  renderTable();
+})();
+</script>
+</body>
+</html>
