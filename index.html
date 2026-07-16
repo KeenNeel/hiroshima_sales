@@ -568,6 +568,7 @@ body.help-on #helpBanner{display:block}
   <h2>ターゲットマップ</h2>
   <div class="chips" id="mapAreaChips"></div>
   <div id="bigmap"></div>
+  <p class="note" id="mapNoPos" style="display:none;color:var(--danger)"></p>
   <div class="legend">
     <span class="lg-un">未訪問</span><span class="lg-vi">訪問済</span>
     <span class="lg-pr">見込み</span><span class="lg-cl">取引中</span>
@@ -914,6 +915,7 @@ body.help-on #helpBanner{display:block}
       <input type="text" id="setGas" placeholder="https://script.google.com/macros/s/xxxx/exec" style="flex:1;min-width:220px">
       <button class="btn" id="setGasBtn">保存</button>
       <button class="btn ghost" id="setTestBtn">接続テスト</button>
+      <button class="btn ghost" id="setDiagBtn">🩺 GAS診断（詳細）</button>
     </div>
     <p class="note" id="setMsg"></p>
   </div>
@@ -937,6 +939,21 @@ body.help-on #helpBanner{display:block}
     <div class="row">
       <button class="btn ghost" id="resetBtn" style="color:var(--danger)">全データを初期状態に戻す</button>
     </div>
+  </div>
+  <div class="card" id="syncCard">
+    <label class="fld">☁️ スマホ⇄PC 同期（Googleスプレッドシート）</label>
+    <p class="note">同じGASを設定した端末どうしで、企業リスト・訪問記録・メモを共有します。データはあなたのGoogleドライブ上のスプレッドシートに保存されます。</p>
+    <div class="hint">スマホとPCで同じデータを見る・両方から編集するための機能です。<b>⬆️保存</b>でこの端末の内容をスプレッドシートへ、<b>⬇️取得</b>でスプレッドシートの内容をこの端末へ反映します。<b>自動同期</b>をONにすると、変更時に自動で保存し、アプリを開いたときに自動で取得します。<br>両方の端末で編集した場合は<b>自動的に統合</b>されます（どちらの変更も消えません。同じ企業を両方で編集した場合は、後から編集した方の内容が残ります）。</div>
+    <div class="row">
+      <label style="font-size:.72rem;color:var(--steel-300);display:flex;align-items:center;gap:5px">
+        <input type="checkbox" id="syncAuto" style="accent-color:var(--molten)">自動同期する
+      </label>
+      <button class="btn" id="syncPushBtn">⬆️ この端末の内容を保存</button>
+      <button class="btn ghost" id="syncPullBtn">⬇️ 最新を取得</button>
+      <button class="btn ghost" id="syncOpenBtn">📗 シートを開く</button>
+    </div>
+    <p class="note" id="syncMsg"></p>
+    <p class="note">※初回は⚙️GASエディタで関数「認可を許可する」を実行し、スプレッドシートの権限を許可してください。</p>
   </div>
   <div class="card" id="csvXCard">
     <label class="fld">📊 全項目CSV出力（抽出条件つき）＆メール送信</label>
@@ -1150,7 +1167,10 @@ function repSearchUrl(co){
   return "https://www.google.com/search?q=" + encodeURIComponent(q);
 }
 function wikiSearchUrl(co){
-  return "https://ja.wikipedia.org/w/index.php?title=特別:検索&search=" + encodeURIComponent(co.name);
+  /* 「特別:検索」は未エンコードだとコロンでクエリが壊れるため、
+     標準の検索エンドポイント(/w/index.php?search=...)を使う */
+  return "https://ja.wikipedia.org/w/index.php?search=" + encodeURIComponent(co.name)
+    + "&ns0=1";
 }
 const NEARBY_CATEGORIES = [
   ["🅿️","駐車場"], ["⛽","ガソリンスタンド"], ["🏪","コンビニ"],
@@ -1204,6 +1224,14 @@ function coordsFromAddr(addr){
     if(addr.includes(city)){
       return [ ll[0] + (Math.random()-.5)*0.012, ll[1] + (Math.random()-.5)*0.012 ];
     }
+  }
+  /* 市町名が辞書に無い住所（例: 岡山県久米郡美咲町）でも地図から消えないよう、
+     県庁所在地付近を暫定の位置として返す。位置は不正確なので coordsRough で印を付ける */
+  const PREF_FALLBACK = {
+    "広島県":[34.396,132.459], "岡山県":[34.662,133.935], "山口県":[34.186,131.471]
+  };
+  for(const [pref,ll] of Object.entries(PREF_FALLBACK)){
+    if(addr.includes(pref)) return [ ll[0] + (Math.random()-.5)*0.02, ll[1] + (Math.random()-.5)*0.02, true ];
   }
   return [null,null];
 }
@@ -1368,6 +1396,10 @@ function cardHTML(co){
       ${statField("代表者", "representative", co)}
       ${statField("電話番号", "phone", co)}
       ${statField("会社URL", "companyUrl", co)}
+      ${statField("拠点区分", "siteTypeDisp", co)}
+      ${statField("主要取引先", "clientsDisp", co)}
+      ${statField("取引銀行", "banksDisp", co)}
+      ${statField("主要株主", "shareholdersDisp", co)}
     </div>`;
   const financeHTML = co.finance
     ? `<div class="fin-note">売上高: ${co.finance.sales!=null ? Number(co.finance.sales).toLocaleString("ja-JP") : "データなし"}
@@ -1977,14 +2009,38 @@ $("#setMailBtn").addEventListener("click", ()=>{
   save();
   alert("送信先メールアドレスを保存しました。");
 });
+/* 接続テストで、GASプロキシが最新版かどうかも判定する */
 $("#setTestBtn").addEventListener("click", async ()=>{
-  $("#setMsg").textContent = "接続テスト中…";
+  const msg = $("#setMsg");
+  msg.textContent = "接続テスト中…";
   try{
     state.gasUrl = $("#setGas").value.trim(); save();
     const data = await callGAS({ action:"ping" });
-    $("#setMsg").textContent = "✅ 接続OK: " + (data.message || "GAS応答あり");
+    let out = "✅ 接続OK: " + (data.message || "GAS応答あり");
+
+    /* companyInfo に対応しているか（＝最新版が反映されているか）を確認する。
+       会社名を空で呼ぶと、対応版なら「会社名が空です」、未対応版なら「不明なaction」が返る */
+    msg.textContent = out + " ／ 機能を確認中…";
+    let modern = false, detail = "";
+    try{
+      const r = await callGAS({ action:"companyInfo", name:"" }, 20000);
+      modern = true; detail = r && r.error ? "" : "";
+    }catch(err){
+      if(/不明なaction/.test(err.message)) modern = false;
+      else modern = true;   /* 「会社名が空です」等はcompanyInfo対応版である証拠 */
+    }
+    if(modern){
+      out += "\n✅ 会社情報の詳細取得（取引先・銀行・株主・拠点区分）に対応しています";
+    }else{
+      out += "\n⚠️ GASプロキシが古い版です。取引先・銀行・株主・拠点区分は取得できません。"
+        + "\n　→ 最新の kaitaku_gas_proxy.gs をGASエディタに貼り替え、"
+        + "「デプロイを管理」→鉛筆→バージョン「新バージョン」→デプロイ を実行してください。";
+    }
+    msg.style.whiteSpace = "pre-wrap";
+    msg.textContent = out;
   }catch(err){
-    $("#setMsg").textContent = "❌ " + err.message;
+    msg.style.whiteSpace = "pre-wrap";
+    msg.textContent = "❌ " + err.message;
   }
 });
 $("#expBtn").addEventListener("click", ()=>{
@@ -2414,6 +2470,7 @@ const CSVX_COMPANY_COLS = [
   ["latestTemp","最新温度感"],["latestPerson","最新面談相手"],
   ["nextAction","次アクション"],["nextDue","次アクション期限"],["visitHistory","訪問履歴全文"],
   ["aiScore","AI相性スコア"],["aiVerdict","AI相性判定"],["aiComment","AI相性コメント"],["aiAt","AI相性判定日"],
+  ["hidden","今後非表示"],["verified","地図位置の出所"],
   ["mapUrl","地図URL"],["routeUrl","ルートURL(自分→企業)"],
   ["nearbyParking","周辺:駐車場ルート"],["nearbyGs","周辺:ガソリンスタンドルート"],["nearbyConv","周辺:コンビニルート"],
   ["nearbySuper","周辺:スーパールート"],["nearbyRest","周辺:レストランルート"],["nearbyGift","周辺:お土産ルート"],
@@ -2461,6 +2518,8 @@ function buildCompanyCsv(f){
       aiVerdict: m ? (m.verdict||"") : "",
       aiComment: m ? ((m.reasons||[]).join("／") + (m.approach ? " ▶最初の一手:"+m.approach : "") + (m.raw||"")) : "",
       aiAt: m ? (m.at||"") : "",
+      hidden: co.hidden ? "はい" : "",
+      verified: ({official:"公式サイト",navitime:"地図事業者",addr:"住所から概算",ai:"AI取得"})[co.verified] || "",
       mapUrl: csvXMapUrl(co), routeUrl: csvXRouteUrl(co),
       nearbyParking: nearby["駐車場"], nearbyGs: nearby["ガソリンスタンド"], nearbyConv: nearby["コンビニ"],
       nearbySuper: nearby["スーパー"], nearbyRest: nearby["レストラン"], nearbyGift: nearby["お土産"],
@@ -2843,10 +2902,37 @@ function salesText(co){
 (function patchSalesDisp(){
   const _renderList = renderList;
   renderList = function(){
-    state.companies.forEach(co=>{ co.salesDisp = salesText(co); });
+    state.companies.forEach(co=>{
+      co.salesDisp = salesText(co);
+      /* 取引先・銀行・株主・拠点区分も、会社情報欄に枠として常時表示するため
+         配列を「、」区切りの文字列にして渡す（未取得なら空欄＝「未取得」と表示される） */
+      co.clientsDisp = (co.clients||[]).join("、");
+      co.banksDisp = (co.banks||[]).join("、");
+      co.shareholdersDisp = (co.shareholders||[]).join("、");
+      co.siteTypeDisp = (typeof siteTypeOf==="function") ? siteTypeOf(co) : (co.siteType||"");
+    });
     _renderList();
   };
 })();
+/* これらの欄を手で直したら、元の配列/値に戻して保存する */
+$("#coList").addEventListener("change", e=>{
+  const act = e.target.dataset.act;
+  const map = { clientsDisp:"clients", banksDisp:"banks", shareholdersDisp:"shareholders" };
+  const card = e.target.closest(".card"); if(!card) return;
+  const co = state.companies.find(c=>c.id==card.dataset.id); if(!co) return;
+  if(map[act]){
+    /* 「、」「,」「；」「;」のどれで区切ってもよいようにする */
+    const v = e.target.value.split(/[、,；;]/).map(s=>s.trim()).filter(Boolean);
+    co[map[act]] = v;
+    co.userEdited = true; co.relChecked = true;
+    save(); renderList();
+  }
+  if(act==="siteTypeDisp"){
+    co.siteType = e.target.value.trim();
+    co.userEdited = true;
+    save(); renderList(); renderMarkers();
+  }
+});
 /* 売上高欄を手で直したら salesManual として保存する */
 $("#coList").addEventListener("change", e=>{
   if(e.target.dataset.act!=="salesDisp") return;
@@ -2988,7 +3074,13 @@ async function fetchAllForCompany(co, onStep){
       if(info.note) notes.push(info.note);
     }
   }catch(err){
-    notes.push("AI取得エラー: " + err.message);
+    /* GASプロキシが古いと companyInfo を知らずエラーになる。原因が分かる案内にする */
+    if(/不明なaction/.test(err.message)){
+      notes.push("⚠️ GASプロキシが古いため、取引先・銀行・株主・拠点区分を取得できません。"
+        + "最新の kaitaku_gas_proxy.gs に貼り替えて「新バージョンで再デプロイ」してください。");
+    }else{
+      notes.push("AI取得エラー: " + err.message);
+    }
   }
   /* AIの構造化取得でタグが得られなかった場合は、事業内容から改めて分類を試みる
      （「詳細取得だけで加工分類まで終わる」ようにするための保険） */
@@ -3253,14 +3345,10 @@ function relListHTML(label, arr, icon){
     arr.map(x=>`<span class="reltag">${esc(x)}</span>`).join("")}</span></div>`;
 }
 function relationsHTML(co){
-  const html = [
-    relListHTML("主要取引先", co.clients, "🤝"),
-    relListHTML("取引銀行", co.banks, "🏦"),
-    relListHTML("主要株主", co.shareholders, "📊")
-  ].filter(Boolean).join("");
-  if(!html) return "";
-  return `<div class="relbox">${html}
-    <div class="relnote">※公表情報にもとづくAI取得。商談前に必ずご確認ください</div></div>`;
+  /* 取引先・銀行・株主は会社情報欄(stat-grid)の枠に常時表示するようにしたため、
+     ここでは重複表示を避け、AI取得である旨の注記だけを出す */
+  if(!(co.clients&&co.clients.length) && !(co.banks&&co.banks.length) && !(co.shareholders&&co.shareholders.length)) return "";
+  return `<div class="relbox"><div class="relnote">※ 主要取引先・取引銀行・主要株主は公表情報にもとづくAI取得です。商談前に必ずご確認ください</div></div>`;
 }
 
 /* カードに拠点バッジ・取引先情報を差し込む
@@ -3440,6 +3528,18 @@ renderMarkers = (function(orig){
       );
       markerLayer.addLayer(m);
     });
+    /* 地図に出せない企業（住所から座標が特定できない）を黙って消さず、件数を知らせる */
+    const nopos = state.companies.filter(co=>
+      co.lat==null && !co.excludeVisit && (showHidden() || !co.hidden));
+    const warn = document.getElementById("mapNoPos");
+    if(warn){
+      warn.innerHTML = nopos.length
+        ? `⚠️ 住所から地図の位置を特定できないため、<b>${nopos.length}社が地図に表示されていません</b>`
+          + `（${nopos.slice(0,3).map(c=>esc(c.name)).join("、")}${nopos.length>3?" ほか":""}）。`
+          + `企業タブの該当カードで住所を入力すると表示されます。`
+        : "";
+      warn.style.display = nopos.length ? "" : "none";
+    }
   };
 })(renderMarkers);
 
@@ -3605,6 +3705,258 @@ $("#tbTable").addEventListener("click", e=>{
   const lg = document.querySelector(".legend .lg-vi");
   if(lg) lg.title = "訪問済みは白フチの濃い丸で表示されます";
   refreshAllViews();
+})();
+</script>
+<script id="v7-addon-js">
+"use strict";
+/* =========================================================
+   ▼ GAS診断・スプレッドシート同期 アドオン v7（追記ブロック）
+   1) 🩺 GAS診断：どの機能が使えるかを1回で確認する
+   2) ☁️ スマホ⇄PC 同期（Googleスプレッドシート）
+========================================================= */
+
+/* ========== 1) GAS診断 ========== */
+$("#setDiagBtn").addEventListener("click", async ()=>{
+  const msg = $("#setMsg");
+  msg.style.whiteSpace = "pre-wrap";
+  msg.textContent = "診断中…（20〜40秒かかります）";
+  const lines = [];
+  const check = async (label, payload, ok) => {
+    try{
+      const r = await callGAS(payload, 30000);
+      if(r && r.error){
+        if(/不明なaction/.test(r.error)) return lines.push(`❌ ${label}: GASが古い版です（この機能は未対応）`);
+        return lines.push(`△ ${label}: ${r.error}`);
+      }
+      lines.push(`✅ ${label}: ${ok(r)}`);
+    }catch(err){
+      if(/不明なaction/.test(err.message)) lines.push(`❌ ${label}: GASが古い版です（この機能は未対応）`);
+      else lines.push(`❌ ${label}: ${err.message}`);
+    }
+  };
+  await check("接続", {action:"ping"}, r=>r.message||"応答あり");
+  await check("gBizINFO検索", {action:"gbiz", keyword:"鉄工"}, r=>`${(r.results||[]).length}件ヒット`);
+  await check("AI(Claude)", {action:"claude", prompt:"「OK」とだけ返答してください"}, r=>String(r.text||"").slice(0,12));
+  await check("会社情報の詳細取得(取引先・銀行・株主)", {action:"companyInfo", name:""},
+    ()=>"対応（※会社名が空でも通れば対応版）");
+  await check("スプレッドシート同期", {action:"syncPull"},
+    r=>r.empty ? "対応（まだデータ未保存）" : `対応（版${r.rev} / ${r.updatedAt}）`);
+  const ng = lines.filter(l=>l.startsWith("❌")).length;
+  lines.unshift(ng
+    ? `⚠️ ${ng}件の機能が使えません。GASプロキシを最新版に貼り替え、「デプロイを管理」→鉛筆→「新バージョン」→デプロイ を実行してください。\n`
+    : "🎉 すべての機能が利用可能です\n");
+  msg.textContent = lines.join("\n");
+});
+
+/* ========== 2) スプレッドシート同期 ========== */
+/* 同期対象: 企業・訪問記録・次ID（設定やGAS URLは端末ごとなので同期しない） */
+function syncPayload(){
+  return {
+    companies: state.companies,
+    logs: state.logs,
+    nextId: state.nextId,
+    nextLogId: state.nextLogId
+  };
+}
+/* 同期の内部処理による保存で、自動同期が再び走らないようにするための印。
+   これが無いと「取り込む→保存→自動同期→競合→取り込む…」が無限に続く */
+/* 統合の判断材料にするため、変更した企業・訪問記録に更新時刻を刻む。
+   これが無いと、どちらが新しいかを判断できず統合結果が不正確になる */
+function stampUpdated(obj){
+  if(obj && typeof obj==="object") obj.updatedAt = new Date().toISOString();
+  return obj;
+}
+(function stampOnSave(){
+  const _save = save;
+  let prev = JSON.stringify({c:state.companies, l:state.logs});
+  save = function(){
+    /* 同期の取り込み処理中は刻まない（取り込んだ内容の時刻を保つ） */
+    if(!syncMuted){
+      try{
+        const now = JSON.stringify({c:state.companies, l:state.logs});
+        if(now !== prev){
+          /* 変更のあったレコードだけに時刻を刻む */
+          const pv = JSON.parse(prev);
+          const pc = new Map((pv.c||[]).map(x=>[x.id, JSON.stringify(x)]));
+          const pl = new Map((pv.l||[]).map(x=>[x.id, JSON.stringify(x)]));
+          state.companies.forEach(c=>{
+            const before = pc.get(c.id);
+            const after = JSON.stringify(Object.assign({}, c, {updatedAt:undefined, salesDisp:undefined,
+              clientsDisp:undefined, banksDisp:undefined, shareholdersDisp:undefined, siteTypeDisp:undefined}));
+            const beforeNorm = before ? JSON.stringify(Object.assign({}, JSON.parse(before), {updatedAt:undefined,
+              salesDisp:undefined, clientsDisp:undefined, banksDisp:undefined, shareholdersDisp:undefined, siteTypeDisp:undefined})) : null;
+            if(beforeNorm !== after) stampUpdated(c);
+          });
+          state.logs.forEach(l=>{ if(pl.get(l.id) !== JSON.stringify(l)) stampUpdated(l); });
+          prev = JSON.stringify({c:state.companies, l:state.logs});
+        }
+      }catch(e){ /* 時刻付与に失敗しても保存自体は続行する */ }
+    }
+    _save();
+  };
+})();
+
+let syncMuted = false;
+function saveQuiet(){
+  syncMuted = true;
+  try{ save(); } finally { syncMuted = false; }
+}
+
+let syncBusy = false;
+function applySynced(data, quiet){
+  if(!data) return;
+  state.companies = data.companies || [];
+  state.logs = data.logs || [];
+  state.nextId = data.nextId || (Math.max(0, ...state.companies.map(c=>c.id||0)) + 1);
+  state.nextLogId = data.nextLogId || (Math.max(0, ...state.logs.map(l=>l.id||0)) + 1);
+  /* 同期で取り込んだ内容の保存は、自動同期を再発火させない（無限ループ防止） */
+  if(quiet) saveQuiet(); else save();
+  refreshAllViews();
+  fillCoSelects();
+}
+function syncSetMsg(t, cls){
+  const el = $("#syncMsg");
+  el.style.whiteSpace = "pre-wrap";
+  el.textContent = t;
+  el.style.color = cls==="err" ? "var(--danger)" : cls==="ok" ? "var(--ok)" : "";
+}
+async function syncPull(silent){
+  if(!state.gasUrl){ if(!silent) syncSetMsg("GAS URLが未設定です", "err"); return; }
+  if(syncBusy) return;
+  syncBusy = true;
+  if(!silent) syncSetMsg("最新を取得中…");
+  try{
+    const r = await callGAS({ action:"syncPull" }, 30000);
+    if(r.error){ syncSetMsg("❌ " + r.error, "err"); return; }
+    if(r.empty || !r.data){
+      if(!silent) syncSetMsg("シートにまだデータがありません。「⬆️ この端末の内容を保存」で最初の保存をしてください。");
+      return;
+    }
+    applySynced(r.data, true);
+    state.syncRev = r.rev; saveQuiet();
+    syncSetMsg(`⬇️ 取得しました（版${r.rev} / ${r.updatedAt}）　企業${state.companies.length}件・訪問${state.logs.length}件`, "ok");
+  }catch(err){
+    syncSetMsg("❌ " + err.message + (/不明なaction/.test(err.message) ? "（GASを最新版に更新してください）" : ""), "err");
+  }finally{
+    syncBusy = false;
+  }
+}
+async function syncPush(force){
+  if(!state.gasUrl){ syncSetMsg("GAS URLが未設定です", "err"); return; }
+  if(syncBusy) return;            /* 二重起動を防ぐ */
+  syncBusy = true;
+  syncSetMsg("保存中…");
+  try{
+    const r = await callGAS({
+      action:"syncPush",
+      data: syncPayload(),
+      baseRev: force ? -1 : (state.syncRev || 0)
+    }, 40000);
+    if(r.error){ syncSetMsg("❌ " + r.error, "err"); return; }
+    if(r.conflict){
+      /* 他端末が先に更新している。
+         勝手に消さないことが最優先だが、確認ダイアログを毎回出すと
+         作業が止まるため、既定では「両方を残す」自動マージで解決する。 */
+      const merged = mergeStates(r.data, syncPayload());
+      applySynced(merged, true);
+      state.syncRev = r.rev; saveQuiet();
+      /* マージ結果をサーバへ書き戻す（今度は最新の版を基準にする） */
+      const r2 = await callGAS({ action:"syncPush", data: syncPayload(), baseRev: r.rev }, 40000);
+      if(r2 && r2.ok){
+        state.syncRev = r2.rev; saveQuiet();
+        syncSetMsg(`🔀 他端末の変更と自動的に統合しました（版${r2.rev}）　`
+          + `企業${state.companies.length}件・訪問${state.logs.length}件`, "ok");
+      }else if(r2 && r2.conflict){
+        /* さらに他端末が更新した場合は、次の保存に任せる（ダイアログは出さない） */
+        syncSetMsg("⏳ 他端末が更新中のため、次回の保存でまとめて反映します", "");
+      }else{
+        syncSetMsg("❌ " + ((r2 && r2.error) || "統合後の保存に失敗しました"), "err");
+      }
+      return;
+    }
+    state.syncRev = r.rev; saveQuiet();
+    const kb = r.size ? `　${Math.round(r.size/1024)}KB` : "";
+    syncSetMsg(`⬆️ 保存しました（版${r.rev} / ${r.updatedAt}）　企業${state.companies.length}件・訪問${state.logs.length}件${kb}`, "ok");
+  }catch(err){
+    syncSetMsg("❌ " + err.message + (/不明なaction/.test(err.message) ? "（GASを最新版に更新してください）" : ""), "err");
+  }finally{
+    syncBusy = false;
+  }
+}
+
+/* 2つの状態を統合する。どちらの変更も消さないことを最優先にする。
+   - 企業/訪問記録は id で突き合わせ、両方にあるものは「後から更新された方」を採用
+   - 片方にしかないものは必ず残す */
+function mergeStates(remote, local){
+  const R = remote || { companies:[], logs:[] };
+  const L = local  || { companies:[], logs:[] };
+  const pick = (a, b) => {
+    /* 更新時刻が分かる場合はそれを優先。分からない場合はローカルを優先する
+       （利用者が今まさに編集している端末の内容を尊重するため） */
+    const ta = a && a.updatedAt ? String(a.updatedAt) : "";
+    const tb = b && b.updatedAt ? String(b.updatedAt) : "";
+    if(ta && tb) return ta >= tb ? a : b;
+    return b || a;
+  };
+  const mergeById = (ra, la) => {
+    const map = new Map();
+    (ra||[]).forEach(x=>map.set(x.id, x));
+    (la||[]).forEach(x=>{
+      map.set(x.id, map.has(x.id) ? pick(map.get(x.id), x) : x);
+    });
+    return [...map.values()];
+  };
+  const companies = mergeById(R.companies, L.companies);
+  const logs = mergeById(R.logs, L.logs);
+  return {
+    companies, logs,
+    nextId: Math.max(R.nextId||1, L.nextId||1, ...companies.map(c=>(c.id||0)+1)),
+    nextLogId: Math.max(R.nextLogId||1, L.nextLogId||1, ...logs.map(l=>(l.id||0)+1))
+  };
+}
+$("#syncPushBtn").addEventListener("click", ()=>syncPush(false));
+$("#syncPullBtn").addEventListener("click", ()=>syncPull(false));
+$("#syncOpenBtn").addEventListener("click", async ()=>{
+  syncSetMsg("シートのURLを取得中…");
+  try{
+    const r = await callGAS({ action:"syncPull" }, 20000);
+    if(r.error){ syncSetMsg("❌ " + r.error, "err"); return; }
+    syncSetMsg("GASエディタで関数「認可を許可する」を実行すると、実行ログにシートのURLが表示されます。\n"
+      + "またはGoogleドライブで「広島営業開拓サポート データ」を検索してください。");
+  }catch(err){ syncSetMsg("❌ " + err.message, "err"); }
+});
+
+/* 自動同期: 変更後しばらく操作がなければ保存する（打鍵のたびに送らない） */
+let syncTimer = null;
+function scheduleAutoSync(){
+  if(!state.syncAuto) return;
+  if(syncMuted) return;      /* 同期処理自身の保存では発火させない（無限ループ防止） */
+  if(syncBusy) return;       /* 同期中の保存でも発火させない */
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(()=>syncPush(false), 2500);
+}
+(function hookSaveForAutoSync(){
+  const _save = save;
+  save = function(){
+    _save();
+    scheduleAutoSync();
+  };
+})();
+$("#syncAuto").addEventListener("change", e=>{
+  state.syncAuto = e.target.checked;
+  save();
+  if(state.syncAuto) syncSetMsg("自動同期をONにしました。変更するとこの端末の内容が自動保存されます。");
+  else syncSetMsg("自動同期をOFFにしました。");
+});
+
+/* ========== 初期化 ========== */
+(function initV7(){
+  $("#syncAuto").checked = !!state.syncAuto;
+  if(state.syncRev) syncSetMsg(`前回の同期: 版${state.syncRev}`);
+  /* 自動同期がONなら、起動時に最新を取り込む（他端末での変更を反映） */
+  if(state.syncAuto && state.gasUrl){
+    setTimeout(()=>syncPull(true), 800);
+  }
 })();
 </script>
 </body>
