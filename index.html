@@ -503,6 +503,36 @@ body.help-on #helpBanner{display:block}
 .legend .lg-vi::before{
   content:"◉";color:#4a90d9;
 }
+
+/* ===== 一括削除・チェック列 ===== */
+#tbTable th.tb-selcol,#tbTable td.tb-selcol{
+  width:34px;text-align:center;padding:4px 6px;
+  position:sticky;left:0;z-index:2;background:#f2f9fa;
+}
+#tbTable thead th.tb-selcol{z-index:4;background:#cfe4e8}
+/* 選択列(1列目)の右に社名列(2列目)を固定する。重ならないよう左位置をずらす */
+#tbTable th.tb-selcol + th,#tbTable td.tb-selcol + td{
+  position:sticky;left:34px;z-index:2;background:#f2f9fa;font-weight:600;
+  box-shadow:1px 0 0 var(--line);
+}
+#tbTable thead th.tb-selcol + th{z-index:4;background:#cfe4e8}
+#tbTable td.tb-boolcol{text-align:center}
+#tbTable .tb-sel,#tbTable .tb-bool{accent-color:var(--molten);cursor:pointer;width:15px;height:15px}
+#tbTable .tb-sel{accent-color:var(--danger)}
+#tbTable tr:has(.tb-sel:checked) td{background:rgba(214,84,84,.07)}
+
+/* ===== 同期の動作説明 ===== */
+.synchelp{
+  font-size:.7rem;line-height:1.7;color:var(--paper);
+  background:rgba(14,127,163,.06);border:1px solid rgba(14,127,163,.3);
+  border-radius:var(--radius);padding:8px 10px;margin-top:8px;
+}
+.synchelp>b{color:var(--molten);display:block;margin-bottom:4px}
+.synchelp ul{margin:0;padding-left:1.1em}
+.synchelp li{margin:3px 0}
+.synchelp ul ul{margin:2px 0;padding-left:1em;color:var(--steel-300)}
+/* 地図ポップアップ内のボタン */
+.leaflet-popup-content .mapopen:hover{background:#0a6786}
 </style>
 </head>
 <body>
@@ -851,7 +881,7 @@ body.help-on #helpBanner{display:block}
 <section class="tab" id="tab-table">
   <h2>リスト表示（CSV出力プレビュー）</h2>
   <p class="note">⚙️設定タブの「全項目CSV出力」で書き出される内容を、<b>出力前にそのまま確認</b>できます。ここで絞り込んだ条件はCSV出力にも連動します。</p>
-  <div class="hint">CSVをメールで送る前に「どの会社が何件出るか」をここで確認するためのタブです。<b>下の絞り込み条件はCSV出力と共通</b>なので、ここで整えてから⚙️設定タブでダウンロード／メール送信してください。<br><b>✎ 表のセルはクリックすると直接編集できます</b>（状況・位置づけ・住所・電話番号・資本金・拠点区分など）。ここでの編集は企業カード・地図にもすぐ反映され、以後の自動取得で上書きされません。</div>
+  <div class="hint">CSVをメールで送る前に「どの会社が何件出るか」をここで確認するためのタブです。<b>下の絞り込み条件はCSV出力と共通</b>なので、ここで整えてから⚙️設定タブでダウンロード／メール送信してください。<br><b>✎ 表のセルはクリックすると直接編集できます</b>（状況・位置づけ・住所・電話番号・資本金・拠点区分など）。<b>既取引先・訪問対象外・今後非表示はチェックボックス</b>で直接切り替えられます。ここでの編集は企業カード・地図にもすぐ反映され、以後の自動取得で上書きされません。<br><b>🗑️ 一括削除</b>：左端のチェックで企業を選ぶと削除ボタンが出ます（訪問記録も一緒に消えます。取り消せません）。</div>
   <div class="row">
     <select id="tbType">
       <option value="companies">企業一覧（1社1行）</option>
@@ -902,6 +932,12 @@ body.help-on #helpBanner{display:block}
     <button class="btn ghost" id="tbMailBtn">📧 この内容をメール送信</button>
   </div>
   <p class="note" id="tbMsg"></p>
+  <div class="row" id="tbDelBar" style="display:none;align-items:center;gap:9px;background:rgba(214,84,84,.08);border:1px solid rgba(214,84,84,.4);border-radius:var(--radius);padding:7px 9px">
+    <b id="tbSelCount" style="font-size:.74rem;color:var(--danger)"></b>
+    <button class="btn small" id="tbDelBtn" style="background:var(--danger)">🗑️ 選択した企業を削除</button>
+    <button class="btn small ghost" id="tbSelClear">選択を解除</button>
+    <span class="note" style="margin:0">※訪問記録も一緒に削除されます</span>
+  </div>
   <p class="note" id="tbCount" style="margin-bottom:4px"></p>
   <div class="tbwrap"><table id="tbTable"></table></div>
 </section>
@@ -953,6 +989,22 @@ body.help-on #helpBanner{display:block}
       <button class="btn ghost" id="syncOpenBtn">📗 シートを開く</button>
     </div>
     <p class="note" id="syncMsg"></p>
+    <div class="synchelp">
+      <b>📱💻 両方の端末で「自動同期」をONにしたときの動作</b>
+      <ul>
+        <li><b>保存のタイミング</b>：変更してから約2.5秒後に自動保存します。連続して編集した場合は、まとめて1回だけ送信します。</li>
+        <li><b>取得のタイミング</b>：アプリを開いた（再読み込みした）ときに自動で最新を取得します。<b>開きっぱなしでは相手の変更は入ってきません</b>ので、他端末の変更をすぐ見たいときは「⬇️ 最新を取得」を押してください。</li>
+        <li><b>両方で同時に編集したとき</b>：<b>自動的に統合され、どちらの変更も消えません</b>。確認ダイアログは出ません。
+          <ul>
+            <li>片方だけで追加した企業・訪問記録 → 両方とも残ります</li>
+            <li>同じ企業を両方で編集 → <b>後から編集した方</b>の内容が残ります</li>
+            <li>片方で削除・もう片方で編集 → <b>編集した方が優先</b>され、企業は復活します（誤って消さないための動作です）</li>
+          </ul>
+        </li>
+        <li><b>削除を確実に反映したいとき</b>：削除した端末で「⬆️ この端末の内容を保存」を押し、もう一方の端末で「⬇️ 最新を取得」を押してください。</li>
+        <li><b>オフライン時</b>：保存は失敗しますが、この端末のデータは残ります。通信が戻ってから再度保存してください。</li>
+      </ul>
+    </div>
     <p class="note">※初回は⚙️GASエディタで関数「認可を許可する」を実行し、スプレッドシートの権限を許可してください。</p>
   </div>
   <div class="card" id="csvXCard">
@@ -2737,11 +2789,15 @@ function syncCsvXToTb(){
 /* 企業一覧プレビューの表示列（CSVは全項目・画面は見やすい主要列） */
 const TB_COMPANY_COLS = [
   ["name","社名"],["area","エリア"],["addr","住所"],["status","状況"],["role","位置づけ"],
-  ["tags","加工タグ"],["capital","資本金"],["employees","従業員"],["addedAt","登録日"],
+  ["existingClient","既取引先"],["excludeVisit","訪問対象外"],["hidden","今後非表示"],
+  ["tags","加工タグ"],["siteType","拠点区分"],["salesDisp","売上高"],
+  ["capital","資本金"],["employees","従業員"],["addedAt","登録日"],
   ["visitCount","訪問回数"],["lastVisit","最終訪問"],["latestTemp","温度"],
   ["nextAction","次アクション"],["nextDue","期限"],["aiScore","AI相性"],
   ["phone","電話番号"],["representative","代表者"],["biz","事業内容"],["memo","メモ"]
 ];
+/* チェックボックスとして表示・編集する列 */
+const TB_BOOL_COLS = new Set(["existingClient","excludeVisit","hidden"]);
 const TB_NUM_COLS = new Set(["capital","employees","visitCount","aiScore"]);
 function tbCompanyRows(f){
   return state.companies.filter(co=>csvXCompanyPasses(co, f))
@@ -2754,6 +2810,9 @@ function tbCompanyRows(f){
         _id: co.id,
         name: co.name, area: AREAS[co.area]||"", addr: co.addr||"",
         status: STATUS[co.status]||"", role: ROLES[co.role]||"",
+        existingClient: !!co.existingClient, excludeVisit: !!co.excludeVisit, hidden: !!co.hidden,
+        siteType: (typeof siteTypeOf==="function") ? siteTypeOf(co) : (co.siteType||""),
+        salesDisp: (typeof salesText==="function") ? salesText(co) : "",
         tags: (co.tags||[]).join("、"),
         capital: (typeof co.capital==="number") ? co.capital.toLocaleString("ja-JP") : "",
         employees: (typeof co.employees==="number") ? co.employees.toLocaleString("ja-JP") : "",
@@ -2785,6 +2844,20 @@ function tbLogRows(f){
   rows.sort((a,b)=>a.date.localeCompare(b.date));
   return rows;
 }
+/* 一括削除のために選択された企業のID。画面を再描画しても選択を保つ */
+const tbSelected = new Set();
+function updateTbSelUI(){
+  const bar = document.getElementById("tbDelBar");
+  if(bar) bar.style.display = tbSelected.size ? "" : "none";
+  const n = document.getElementById("tbSelCount");
+  if(n) n.textContent = tbSelected.size + "件を選択中";
+  const all = document.getElementById("tbSelAll");
+  if(all){
+    const boxes = [...document.querySelectorAll("#tbTable .tb-sel")];
+    all.checked = boxes.length>0 && boxes.every(b=>b.checked);
+  }
+}
+
 function renderTable(){
   const f = tbReadFilters();
   syncTbToCsvX();
@@ -2800,18 +2873,35 @@ function renderTable(){
     $("#tbCount").textContent = "該当するデータがありません。条件を緩めてみてください。";
     return;
   }
-  const head = `<thead><tr>${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}</tr></thead>`;
-  const body = `<tbody>${rows.map(r=>`<tr>${cols.map(([k])=>{
+  /* 企業一覧のときは、先頭に「選択」列（一括削除用）を付ける */
+  const selCol = !isLogs;
+  const selTh = selCol
+    ? `<th class="tb-selcol" title="削除する企業を選びます"><input type="checkbox" id="tbSelAll" title="表示中をすべて選択"></th>`
+    : "";
+  const head = `<thead><tr>${selTh}${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}</tr></thead>`;
+
+  const cellHTML = (r, k) => {
     const v = r[k]===undefined||r[k]===null ? "" : String(r[k]);
     if(k===jumpKey){
-      return `<td><button class="tb-jump" data-jump="${r._id}" title="企業リストの該当カードへ">${esc(v)}</button>`
-        + (isLogs ? "" : "") + `</td>`;
+      return `<td><button class="tb-jump" data-jump="${r._id}" title="企業リストの該当カードへ">${esc(v)}</button></td>`;
+    }
+    /* 既取引先・訪問対象外・今後非表示はチェックボックスで直接切り替える */
+    if(!isLogs && TB_BOOL_COLS.has(k)){
+      return `<td class="tb-boolcol"><input type="checkbox" class="tb-bool" data-id="${r._id}" data-key="${esc(k)}" ${r[k]?"checked":""}></td>`;
     }
     const cls = TB_NUM_COLS.has(k) ? ' class="num"' : "";
     const long = v.length > 28;
     return `<td${cls}>${long ? `<span class="cellclip" title="${esc(v)}">${esc(v)}</span>` : esc(v)}</td>`;
-  }).join("")}</tr>`).join("")}</tbody>`;
+  };
+  const rowHTML = (r) => {
+    const selTd = selCol
+      ? `<td class="tb-selcol"><input type="checkbox" class="tb-sel" data-id="${r._id}" ${tbSelected.has(r._id)?"checked":""}></td>`
+      : "";
+    return `<tr>${selTd}${cols.map(([k])=>cellHTML(r,k)).join("")}</tr>`;
+  };
+  const body = `<tbody>${rows.map(rowHTML).join("")}</tbody>`;
   $("#tbTable").innerHTML = head + body;
+  updateTbSelUI();
 }
 $("#tbTable").addEventListener("click", e=>{
   const b = e.target.closest("[data-jump]"); if(!b) return;
@@ -3515,15 +3605,19 @@ renderMarkers = (function(orig){
       const visited = co.status==="visited";
       // 訪問済みは一回り大きく、塗りを濃くし、白い縁取りを付けて目立たせる
       const m = L.circleMarker([co.lat,co.lng],{
-        radius: visited ? 11 : 9,
+        radius: visited ? 7 : 5.5,
         color: visited ? "#ffffff" : col,
-        weight: visited ? 3 : 2.5,
+        weight: visited ? 2.5 : 1.8,
         fillColor: col,
-        fillOpacity: visited ? .95 : .5
+        fillOpacity: visited ? .95 : .6
       });
       m.bindPopup(
-        `<b>${esc(co.name)}</b>${co.siteType?` <span style="color:#0a6786">(${esc(co.siteType)})</span>`:""}<br>${esc(co.biz||"")}<br>` +
+        `<b>${esc(co.name)}</b>${co.siteType?` <span style="color:#0a6786">(${esc(co.siteType)})</span>`:""}<br>` +
+        `${esc(co.addr||co.city||"")}<br>${esc(co.biz||"")}<br>` +
         `<span style="color:#888">${STATUS[co.status]} / ${ROLES[co.role]||"未設定"}</span><br>` +
+        `<button type="button" class="mapopen" data-open="${co.id}" ` +
+        `style="margin:5px 4px 0 0;padding:5px 9px;border:none;border-radius:5px;` +
+        `background:#0e7fa3;color:#fff;font-weight:700;cursor:pointer">🏭 企業情報を開く</button>` +
         `<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(co.name+" "+co.addr)}" target="_blank" rel="noopener">🚗 ここへのルート</a>`
       );
       markerLayer.addLayer(m);
@@ -3542,6 +3636,28 @@ renderMarkers = (function(orig){
     }
   };
 })(renderMarkers);
+
+/* 地図のポップアップ内「企業情報を開く」→ 企業タブの該当カードへ移動する。
+   ポップアップは #coList の外に描画されるため、document 全体で受ける */
+document.addEventListener("click", e=>{
+  const b = e.target.closest("[data-open]");
+  if(!b) return;
+  const id = +b.dataset.open;
+  if(!id) return;
+  if(typeof jumpToCompany==="function") jumpToCompany(id);
+});
+
+/* ジャンプ先が「今後非表示」の企業でも必ず表示されるようにする。
+   （非表示のままだとカードが描画されず、押しても何も起きないため） */
+(function jumpShowsHidden(){
+  const _jump = jumpToCompany;
+  jumpToCompany = function(id){
+    const co = state.companies.find(c=>c.id===id);
+    const box = document.getElementById("fltShowHidden");
+    if(co && co.hidden && box && !box.checked){ box.checked = true; }
+    return _jump(id);
+  };
+})();
 
 /* ========== 3) 会社情報の更新時に地図も更新 ========== */
 /* 住所・状況などを変えたら、地図のピンと位置も追従させる */
@@ -3957,6 +4073,96 @@ $("#syncAuto").addEventListener("change", e=>{
   if(state.syncAuto && state.gasUrl){
     setTimeout(()=>syncPull(true), 800);
   }
+})();
+</script>
+<script id="v10-addon-js">
+"use strict";
+/* =========================================================
+   ▼ 一括削除・リスト上のチェック編集 アドオン v10（追記ブロック）
+   1) リスト表示タブでの複数選択 → 一括削除
+   2) 既取引先・訪問対象外・今後非表示をリスト上で直接チェック
+========================================================= */
+
+/* ========== 1) 選択と一括削除 ========== */
+$("#tbTable").addEventListener("change", e=>{
+  /* 全選択 */
+  if(e.target.id==="tbSelAll"){
+    const on = e.target.checked;
+    document.querySelectorAll("#tbTable .tb-sel").forEach(b=>{
+      b.checked = on;
+      if(on) tbSelected.add(+b.dataset.id); else tbSelected.delete(+b.dataset.id);
+    });
+    updateTbSelUI();
+    return;
+  }
+  /* 個別選択 */
+  if(e.target.classList.contains("tb-sel")){
+    const id = +e.target.dataset.id;
+    if(e.target.checked) tbSelected.add(id); else tbSelected.delete(id);
+    updateTbSelUI();
+    return;
+  }
+  /* ========== 2) フラグのチェック編集 ========== */
+  if(e.target.classList.contains("tb-bool")){
+    const id = +e.target.dataset.id, key = e.target.dataset.key;
+    const co = state.companies.find(c=>c.id===id);
+    if(!co) return;
+    co[key] = e.target.checked;
+    co.userEdited = true;      /* リストでの編集を優先し、自動取得で上書きしない */
+    save();
+    /* 一覧・地図・グラフにも即反映する。
+       ただし表を作り直すと編集中の位置に戻ってしまうため、表以外を更新する */
+    renderList(); renderMarkers();
+    if(typeof renderChart==="function"){ try{ renderChart(); }catch(err){} }
+    const msg = document.getElementById("tbMsg");
+    if(msg){
+      const LBL = { existingClient:"既取引先", excludeVisit:"訪問対象外", hidden:"今後非表示" };
+      msg.textContent = `✅ ${co.name} の「${LBL[key]}」を${e.target.checked?"ON":"OFF"}にしました`;
+    }
+  }
+});
+$("#tbSelClear").addEventListener("click", ()=>{
+  tbSelected.clear();
+  document.querySelectorAll("#tbTable .tb-sel").forEach(b=>b.checked=false);
+  updateTbSelUI();
+});
+$("#tbDelBtn").addEventListener("click", ()=>{
+  if(!tbSelected.size) return;
+  const ids = [...tbSelected];
+  const names = ids.map(id=>{
+    const c = state.companies.find(x=>x.id===id); return c ? c.name : "";
+  }).filter(Boolean);
+  const logCount = state.logs.filter(l=>ids.includes(l.companyId)).length;
+  /* 削除は取り消せないため、ここだけは確認する */
+  const ok = confirm(
+    `以下の${ids.length}社を削除します。よろしいですか？\n\n`
+    + names.slice(0,10).map(n=>"・"+n).join("\n")
+    + (names.length>10 ? `\n…ほか${names.length-10}社` : "")
+    + (logCount ? `\n\n※これらの企業の訪問記録 ${logCount}件も一緒に削除されます` : "")
+    + "\n\nこの操作は取り消せません。"
+  );
+  if(!ok) return;
+  state.companies = state.companies.filter(c=>!ids.includes(c.id));
+  state.logs = state.logs.filter(l=>!ids.includes(l.companyId));
+  tbSelected.clear();
+  save();
+  refreshAllViews();
+  fillCoSelects();
+  const msg = document.getElementById("tbMsg");
+  if(msg) msg.textContent = `🗑️ ${ids.length}社`
+    + (logCount ? `と訪問記録${logCount}件` : "")
+    + `を削除しました（残り ${state.companies.length}社）`
+    + (state.syncAuto ? "。他の端末にも自動同期されます。" : "。同期する場合は⚙️設定で「⬆️保存」してください。");
+});
+/* 表を開き直したときに、消えた企業の選択が残らないようにする */
+(function cleanSelection(){
+  const _renderTable = renderTable;
+  renderTable = function(){
+    [...tbSelected].forEach(id=>{
+      if(!state.companies.some(c=>c.id===id)) tbSelected.delete(id);
+    });
+    _renderTable();
+  };
 })();
 </script>
 </body>
